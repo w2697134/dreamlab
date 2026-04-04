@@ -699,7 +699,7 @@ export default function ProfilePage() {
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <span className={mode === 'dark' ? 'text-white/50' : 'text-gray-500'}>版本</span>
-                    <span className={mode === 'dark' ? 'text-white/70' : 'text-gray-600'}>1.0.1</span>
+                    <span className={mode === 'dark' ? 'text-white/70' : 'text-gray-600'}>1.0.0</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className={mode === 'dark' ? 'text-white/50' : 'text-gray-500'}>开发者</span>
