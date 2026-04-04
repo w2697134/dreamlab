@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>梦境可视化心理辅助系统 - 需求规格说明书</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body { 
+      font-family: "SimSun", "宋体", "Microsoft YaHei", sans-serif; 
+      background: #fff; 
+      color: #000;
+      padding: 40px 50px;
+      max-width: 950px;
+      margin: 0 auto;
+      line-height: 1.8;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 25px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid #000;
+    }
+    .header h1 { font-size: 18px; font-weight: bold; letter-spacing: 2px; }
+    .header .subtitle { font-size: 10px; color: #666; margin-top: 4px; }
+    
+    .instruction {
+      background: #f5f5f5;
+      padding: 8px 12px;
+      margin-bottom: 20px;
+      font-size: 10px;
+      color: #666;
+      border-left: 3px solid #999;
+    }
+    
+    .section { margin-bottom: 20px; }
+    .section-title { 
+      font-size: 13px; 
+      font-weight: bold; 
+      margin-bottom: 10px;
+      padding-bottom: 3px;
+      border-bottom: 1px solid #000;
+    }
+    
+    /* ============ 模块图 ============ */
+    .diagram {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 10px 0;
+    }
+    
+    /* 系统层 */
+    .sys-box {
+      width: 220px;
+      height: 35px;
+      background: #ccc;
+      border: 1px solid #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 12px;
+    }
+    
+    /* 连接线：只有中间一根 */
+    .connector {
+      width: 2px;
+      height: 20px;
+      background: #000;
+    }
+    .h-line {
+      width: 2px;
+      height: 2px;
+      background: #000;
+      position: relative;
+    }
+    .h-line::before, .h-line::after {
+      content: '';
+      position: absolute;
+      width: 2px;
+      height: 18px;
+      background: #000;
+      top: -18px;
+    }
+    .h-line::before { left: -150px; }
+    .h-line::after { right: -150px; }
+    
+    /* 模块行 */
+    .modules {
+      display: flex;
+      gap: 6px;
+      border-top: 2px solid #000;
+      padding-top: 0;
+    }
+    
+    /* 每个模块 */
+    .mod {
+      width: 110px;
+      border: 1px solid #000;
+      background: #f5f5f5;
+    }
+    .mod-title {
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 11px;
+      border-bottom: 1px solid #000;
+      background: #e8e8e8;
+    }
+    .mod-subs {
+      display: flex;
+      height: 45px;
+    }
+    .mod-sub {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      border-right: 1px solid #000;
+    }
+    .mod-sub:last-child { border-right: none; }
+    
+    /* 五层架构 */
+    .layers {
+      margin-top: 18px;
+      padding: 10px;
+      background: #fafafa;
+      border: 1px solid #ddd;
+    }
+    .layers h4 { font-size: 10px; margin-bottom: 6px; }
+    .layers-list { display: flex; gap: 4px; flex-wrap: wrap; }
+    .layer {
+      background: #fff;
+      border: 1px solid #000;
+      padding: 3px 8px;
+      font-size: 9px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .layer-num {
+      background: #000;
+      color: #fff;
+      width: 14px;
+      height: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8px;
+    }
+    
+    /* 调用关系 */
+    .relation { margin-top: 12px; }
+    .relation-title {
+      font-size: 11px;
+      font-weight: bold;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .relation-num {
+      background: #000;
+      color: #fff;
+      width: 16px;
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+    }
+    
+    .flow {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      flex-wrap: wrap;
+      padding: 10px;
+      background: #fafafa;
+      border: 1px solid #ddd;
+      margin: 6px 0;
+    }
+    .flow-box {
+      width: 70px;
+      height: 26px;
+      background: #fff;
+      border: 1px solid #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: bold;
+    }
+    .flow-arrow { font-size: 10px; font-weight: bold; }
+    
+    .relation-desc {
+      padding: 6px 10px;
+      border-left: 2px solid #000;
+      font-size: 10px;
+      line-height: 1.7;
+      background: #fff;
+    }
+    
+    /* 人机界面 */
+    .ui-box {
+      border: 1px solid #000;
+      padding: 10px;
+      margin-top: 8px;
+      background: #fafafa;
+    }
+    .ui-box h4 { font-size: 11px; margin-bottom: 6px; }
+    .ui-list {
+      list-style: none;
+      font-size: 9px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 5px;
+    }
+    .ui-list li { padding-left: 8px; position: relative; }
+    .ui-list li::before { content: '·'; position: absolute; left: 0; }
+    
+    .footer {
+      margin-top: 20px;
+      padding-top: 8px;
+      border-top: 1px solid #ddd;
+      text-align: center;
+      font-size: 9px;
+      color: #999;
+    }
+    
+    @media print { body { padding: 20px 30px; } }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>需求规格说明书</h1>
+    <div class="subtitle">梦境可视化心理辅助系统 | 模块层次结构与调用关系</div>
+  </div>
+
+  <div class="instruction">
+    【填写说明：将需求分析结果分解成功能模块以及模块的层次结构、调用关系、模块间接口以及人机界面等，建议用图体现内容，不宜全文字描述。建议图文总体不超过A4纸两页，以1页为宜。】
+  </div>
+
+  <div class="section">
+    <div class="section-title">一、模块层次结构</div>
+    
+    <div class="diagram">
+      <div class="sys-box">梦境可视化心理辅助系统</div>
+      <div class="connector"></div>
+      <div class="h-line"></div>
+      
+      <div class="modules">
+        <div class="mod">
+          <div class="mod-title">用户认证</div>
+          <div class="mod-subs">
+            <div class="mod-sub">登录注册</div>
+            <div class="mod-sub">Token管理</div>
+          </div>
+        </div>
+        
+        <div class="mod">
+          <div class="mod-title">梦境创作</div>
+          <div class="mod-subs">
+            <div class="mod-sub">描述输入</div>
+            <div class="mod-sub">关键词联想</div>
+            <div class="mod-sub">智能润色</div>
+          </div>
+        </div>
+        
+        <div class="mod">
+          <div class="mod-title">AI图像生成</div>
+          <div class="mod-subs">
+            <div class="mod-sub">提示词增强</div>
+            <div class="mod-sub">SD生成</div>
+          </div>
+        </div>
+        
+        <div class="mod">
+          <div class="mod-title">视频生成</div>
+          <div class="mod-subs">
+            <div class="mod-sub">图片串联</div>
+            <div class="mod-sub">视频合成</div>
+          </div>
+        </div>
+        
+        <div class="mod">
+          <div class="mod-title">心理评估</div>
+          <div class="mod-subs">
+            <div class="mod-sub">问卷分析</div>
+            <div class="mod-sub">色彩解读</div>
+          </div>
+        </div>
+        
+        <div class="mod">
+          <div class="mod-title">梦境库管理</div>
+          <div class="mod-subs">
+            <div class="mod-sub">收藏保存</div>
+            <div class="mod-sub">历史记录</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="layers">
+      <h4>系统采用五层架构，自上而下依次为：</h4>
+      <div class="layers-list">
+        <div class="layer"><span class="layer-num">1</span> 表示层</div>
+        <div class="layer"><span class="layer-num">2</span> 业务逻辑层</div>
+        <div class="layer"><span class="layer-num">3</span> AI服务层</div>
+        <div class="layer"><span class="layer-num">4</span> 数据访问层</div>
+        <div class="layer"><span class="layer-num">5</span> 基础设施层</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">二、模块调用关系</div>
+    
+    <div class="relation">
+      <div class="relation-title">
+        <span class="relation-num">1</span> 正向调用关系
+      </div>
+      <div class="flow">
+        <div class="flow-box">用户认证</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box">梦境创作</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box">AI图像生成</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box">视频生成</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box">梦境库管理</div>
+      </div>
+      <div class="relation-desc">
+        用户完成认证后进入创作模块，通过自然语言描述梦境或选择智能推荐的关键词；系统调用AI服务进行提示词润色增强，生成符合第一人称视角的图像；用户可选择多张图片串联生成连贯的梦境视频；最终作品保存至个人梦境库。
+      </div>
+    </div>
+    
+    <div class="relation" style="margin-top: 10px;">
+      <div class="relation-title">
+        <span class="relation-num">2</span> 独立调用关系
+      </div>
+      <div class="relation-desc">
+        心理评估接口可直接从数据访问层读取用户历史图像数据，结合AI服务层进行色彩分析与构图解读，无需经过完整的正向流程。
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">三、人机界面设计</div>
+    
+    <div class="ui-box">
+      <h4>主要界面模块</h4>
+      <ul class="ui-list">
+        <li>首页：导航栏、主题切换、登录状态</li>
+        <li>创作界面：类型选择、风格切换、标签联想</li>
+        <li>评估界面：问卷表单、分析图表、解读展示</li>
+        <li>梦境库：卡片展示、缩略图网格、视频播放</li>
+        <li>个人中心：用户信息、统计数据、设置选项</li>
+        <li>SD配置：API配置、自动检测、状态显示</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="footer">
+    梦境可视化心理辅助系统 | 需求分析文档
+  </div>
+
+</body>
+</html>

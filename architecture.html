@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>梦境可视化系统 - 架构图</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #1a1030 0%, #2d1f4e 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+            color: #fff;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #a855f7, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #a78bfa;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+        
+        .section {
+            background: rgba(255,255,255,0.05);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .section-title {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            color: #c084fc;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        /* 层级架构图 */
+        .layer-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .layer {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .layer-label {
+            width: 120px;
+            text-align: center;
+            font-weight: bold;
+            padding: 15px;
+            border-radius: 12px;
+            font-size: 0.9em;
+        }
+        
+        .layer-5 { background: linear-gradient(135deg, #f472b6, #ec4899); }
+        .layer-4 { background: linear-gradient(135deg, #a78bfa, #8b5cf6); }
+        .layer-3 { background: linear-gradient(135deg, #60a5fa, #3b82f6); }
+        .layer-2 { background: linear-gradient(135deg, #34d399, #10b981); }
+        .layer-1 { background: linear-gradient(135deg, #fbbf24, #f59e0b); }
+        
+        .layer-content {
+            flex: 1;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .module {
+            padding: 12px 20px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            font-size: 0.85em;
+            transition: all 0.3s;
+        }
+        
+        .module:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            background: rgba(255,255,255,0.15);
+        }
+        
+        .arrow-down {
+            text-align: center;
+            font-size: 2em;
+            color: #a78bfa;
+            animation: bounce 1.5s infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(5px); }
+        }
+        
+        /* 调用关系图 */
+        .flow-chart {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .flow-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            width: 100%;
+            max-width: 800px;
+        }
+        
+        .flow-node {
+            padding: 15px 25px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(168,85,247,0.3), rgba(59,130,246,0.3));
+            border: 2px solid rgba(168,85,247,0.5);
+            flex: 1;
+            text-align: center;
+        }
+        
+        .flow-arrow {
+            font-size: 1.5em;
+            color: #a78bfa;
+        }
+        
+        /* 接口表格 */
+        .api-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .api-table th, .api-table td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .api-table th {
+            background: rgba(168,85,247,0.2);
+            color: #c084fc;
+            font-weight: bold;
+        }
+        
+        .api-table tr:hover {
+            background: rgba(255,255,255,0.05);
+        }
+        
+        .method {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        
+        .method-post { background: #10b981; }
+        .method-get { background: #3b82f6; }
+        
+        /* 模块详情卡片 */
+        .module-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        
+        .module-card {
+            background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+            border-radius: 16px;
+            padding: 25px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .module-card h3 {
+            color: #a78bfa;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .module-card ul {
+            list-style: none;
+            color: #d1d5db;
+            font-size: 0.9em;
+        }
+        
+        .module-card li {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .module-card li:last-child {
+            border-bottom: none;
+        }
+        
+        .tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75em;
+            margin-left: 5px;
+        }
+        
+        .tag-primary { background: rgba(168,85,247,0.3); }
+        .tag-success { background: rgba(16,185,129,0.3); }
+        .tag-warning { background: rgba(245,158,11,0.3); }
+        
+        /* SVG 流程图 */
+        .svg-container {
+            background: rgba(0,0,0,0.3);
+            border-radius: 16px;
+            padding: 20px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌙 梦境可视化系统架构图</h1>
+        <p class="subtitle">Dream Visualization System Architecture</p>
+        
+        <!-- 一、系统层次结构 -->
+        <div class="section">
+            <h2 class="section-title">📊 一、系统层次结构（5层架构）</h2>
+            <div class="layer-container">
+                <div class="layer">
+                    <div class="layer-label layer-5">Layer 5<br>用户界面层</div>
+                    <div class="layer-content">
+                        <div class="module">🏠 首页 (page.tsx)</div>
+                        <div class="module">✨ 梦境创作 (dream/page.tsx)</div>
+                        <div class="module">📚 梦境库 (dreams/page.tsx)</div>
+                        <div class="module">👤 个人中心 (profile/page.tsx)</div>
+                    </div>
+                </div>
+                <div class="arrow-down">⬇️</div>
+                
+                <div class="layer">
+                    <div class="layer-label layer-4">Layer 4<br>页面组件层</div>
+                    <div class="layer-content">
+                        <div class="module">🎭 梦境类型选择器</div>
+                        <div class="module">🎨 艺术风格选择器</div>
+                        <div class="module">💧 动态关键词系统</div>
+                        <div class="module">🖼️ 图片网格组件</div>
+                        <div class="module">📋 已选图片列表</div>
+                        <div class="module">🧠 心理分析面板</div>
+                    </div>
+                </div>
+                <div class="arrow-down">⬇️</div>
+                
+                <div class="layer">
+                    <div class="layer-label layer-3">Layer 3<br>API路由层</div>
+                    <div class="layer-content">
+                        <div class="module">🖼️ /api/generate-image-batch</div>
+                        <div class="module">✨ /api/polish-text</div>
+                        <div class="module">🔑 /api/generate-keywords</div>
+                        <div class="module">🧠 /api/analyze-mood</div>
+                        <div class="module">⚙️ /api/adjust-image</div>
+                        <div class="module">🎬 /api/generate-video</div>
+                    </div>
+                </div>
+                <div class="arrow-down">⬇️</div>
+                
+                <div class="layer">
+                    <div class="layer-label layer-2">Layer 2<br>AI服务层</div>
+                    <div class="layer-content">
+                        <div class="module">📷 ImageGenerationClient<br><small>图片生成</small></div>
+                        <div class="module">📝 LLMClient<br><small>大语言模型</small></div>
+                        <div class="module">🎥 VideoGenerationClient<br><small>视频生成</small></div>
+                        <div class="module">⚙️ Config<br><small>配置管理</small></div>
+                    </div>
+                </div>
+                <div class="arrow-down">⬇️</div>
+                
+                <div class="layer">
+                    <div class="layer-label layer-1">Layer 1<br>数据层</div>
+                    <div class="layer-content">
+                        <div class="module">🗄️ Supabase<br><small>数据库+认证</small></div>
+                        <div class="module">💾 LocalStorage<br><small>本地存储</small></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 二、模块调用关系 -->
+        <div class="section">
+            <h2 class="section-title">🔄 二、模块调用关系（核心流程）</h2>
+            <div class="svg-container">
+                <svg width="100%" height="400" viewBox="0 0 900 400">
+                    <!-- 定义箭头 -->
+                    <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="#a78bfa"/>
+                        </marker>
+                        <linearGradient id="boxGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#a855f7;stop-opacity:0.3"/>
+                            <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:0.3"/>
+                        </linearGradient>
+                    </defs>
+                    
+                    <!-- 用户输入 -->
+                    <rect x="20" y="20" width="150" height="60" rx="10" fill="url(#boxGradient)" stroke="#a855f7" stroke-width="2"/>
+                    <text x="95" y="45" text-anchor="middle" fill="#fff" font-size="14">👤 用户输入</text>
+                    <text x="95" y="65" text-anchor="middle" fill="#d1d5db" font-size="11">描述梦境</text>
+                    
+                    <!-- 关键词生成 -->
+                    <rect x="220" y="20" width="150" height="60" rx="10" fill="url(#boxGradient)" stroke="#a855f7" stroke-width="2"/>
+                    <text x="295" y="45" text-anchor="middle" fill="#fff" font-size="14">💧 动态关键词</text>
+                    <text x="295" y="65" text-anchor="middle" fill="#d1d5db" font-size="11">2秒刷新</text>
+                    
+                    <!-- 生成图片 -->
+                    <rect x="420" y="20" width="150" height="60" rx="10" fill="url(#boxGradient)" stroke="#a855f7" stroke-width="2"/>
+                    <text x="495" y="45" text-anchor="middle" fill="#fff" font-size="14">🖼️ 生成图片</text>
+                    <text x="495" y="65" text-anchor="middle" fill="#d1d5db" font-size="11">4种风格</text>
+                    
+                    <!-- 选择记录 -->
+                    <rect x="620" y="20" width="150" height="60" rx="10" fill="url(#boxGradient)" stroke="#a855f7" stroke-width="2"/>
+                    <text x="695" y="45" text-anchor="middle" fill="#fff" font-size="14">✓ 选择记录</text>
+                    <text x="695" y="65" text-anchor="middle" fill="#d1d5db" font-size="11">风格关联</text>
+                    
+                    <!-- 生成视频 -->
+                    <rect x="620" y="120" width="150" height="60" rx="10" fill="url(#boxGradient)" stroke="#a855f7" stroke-width="2"/>
+                    <text x="695" y="145" text-anchor="middle" fill="#fff" font-size="14">🎬 生成视频</text>
+                    <text x="695" y="165" text-anchor="middle" fill="#d1d5db" font-size="11">多图串联</text>
+                    
+                    <!-- AI服务 -->
+                    <rect x="220" y="150" width="150" height="80" rx="10" fill="rgba(16,185,129,0.2)" stroke="#34d399" stroke-width="2"/>
+                    <text x="295" y="175" text-anchor="middle" fill="#34d399" font-size="14" font-weight="bold">🤖 AI服务层</text>
+                    <text x="295" y="195" text-anchor="middle" fill="#d1d5db" font-size="11">coze-coding-dev-sdk</text>
+                    <text x="295" y="215" text-anchor="middle" fill="#9ca3af" font-size="10">图片/视频/文本模型</text>
+                    
+                    <!-- 数据库 -->
+                    <rect x="220" y="280" width="150" height="60" rx="10" fill="rgba(251,191,36,0.2)" stroke="#fbbf24" stroke-width="2"/>
+                    <text x="295" y="305" text-anchor="middle" fill="#fbbf24" font-size="14">🗄️ 数据库</text>
+                    <text x="295" y="325" text-anchor="middle" fill="#d1d5db" font-size="11">Supabase</text>
+                    
+                    <!-- 箭头连接 -->
+                    <line x1="170" y1="50" x2="215" y2="50" stroke="#a78bfa" stroke-width="2" marker-end="url(#arrowhead)"/>
+                    <line x1="370" y1="50" x2="415" y2="50" stroke="#a78bfa" stroke-width="2" marker-end="url(#arrowhead)"/>
+                    <line x1="570" y1="50" x2="615" y2="50" stroke="#a78bfa" stroke-width="2" marker-end="url(#arrowhead)"/>
+                    
+                    <!-- 侧边箭头 -->
+                    <line x1="345" y1="80" x2="345" y2="145" stroke="#a78bfa" stroke-width="2" stroke-dasharray="5"/>
+                    <line x1="295" y1="120" x2="215" y2="120" stroke="#a78bfa" stroke-width="2" stroke-dasharray="5" marker-end="url(#arrowhead)"/>
+                    <line x1="345" y1="230" x2="345" y2="275" stroke="#34d399" stroke-width="2" marker-end="url(#arrowhead)"/>
+                    
+                    <!-- 上下文关联线 -->
+                    <path d="M 695 85 Q 750 85 750 150 Q 750 200 695 200" fill="none" stroke="#ec4899" stroke-width="2" stroke-dasharray="8"/>
+                    <text x="760" y="145" fill="#ec4899" font-size="11">🔗 上下文关联</text>
+                </svg>
+            </div>
+        </div>
+        
+        <!-- 三、API接口清单 -->
+        <div class="section">
+            <h2 class="section-title">📡 三、API接口清单</h2>
+            <table class="api-table">
+                <thead>
+                    <tr>
+                        <th>接口路径</th>
+                        <th>方法</th>
+                        <th>功能</th>
+                        <th>请求参数</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>/api/generate-image-batch</code></td>
+                        <td><span class="method method-post">POST</span></td>
+                        <td>多风格图片生成</td>
+                        <td>{ prompts: string[] }</td>
+                    </tr>
+                    <tr>
+                        <td><code>/api/polish-text</code></td>
+                        <td><span class="method method-post">POST</span></td>
+                        <td>语言润色</td>
+                        <td>{ text, context }</td>
+                    </tr>
+                    <tr>
+                        <td><code>/api/generate-keywords</code></td>
+                        <td><span class="method method-post">POST</span></td>
+                        <td>动态关键词生成</td>
+                        <td>{ keyword }</td>
+                    </tr>
+                    <tr>
+                        <td><code>/api/analyze-mood</code></td>
+                        <td><span class="method method-post">POST</span></td>
+                        <td>心理状态分析</td>
+                        <td>{ imageUrl }</td>
+                    </tr>
+                    <tr>
+                        <td><code>/api/adjust-image</code></td>
+                        <td><span class="method method-post">POST</span></td>
+                        <td>图片调整</td>
+                        <td>{ imageUrl, adjustment }</td>
+                    </tr>
+                    <tr>
+                        <td><code>/api/generate-video</code></td>
+                        <td><span class="method method-post">POST</span></td>
+                        <td>视频生成</td>
+                        <td>{ imageUrls }</td>
+                    </tr>
+                    <tr>
+                        <td><code>/api/dreams</code></td>
+                        <td><span class="method method-get">GET</span> <span class="method method-post">POST</span></td>
+                        <td>梦境列表/创建</td>
+                        <td>—</td>
+                    </tr>
+                    <tr>
+                        <td><code>/api/auth/login</code></td>
+                        <td><span class="method method-post">POST</span></td>
+                        <td>用户登录</td>
+                        <td>{ username, password }</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- 四、核心模块说明 -->
+        <div class="section">
+            <h2 class="section-title">🧩 四、核心模块说明</h2>
+            <div class="module-grid">
+                <div class="module-card">
+                    <h3>🖼️ 多风格图片生成 <span class="tag tag-primary">核心</span></h3>
+                    <ul>
+                        <li>• 调用 batchGenerate 并行生成</li>
+                        <li>• 4种不同风格变体</li>
+                        <li>• 晨曦/黄昏/夜晚/暮色光线</li>
+                        <li>• 近景/中景/远景视角</li>
+                        <li>• 宁静/神秘/温馨/魔幻氛围</li>
+                    </ul>
+                </div>
+                
+                <div class="module-card">
+                    <h3>💧 动态关键词系统 <span class="tag tag-success">创新</span></h3>
+                    <ul>
+                        <li>• 输入时显示河流动画</li>
+                        <li>• 停顿2秒自动刷新</li>
+                        <li>• AI生成相关关键词</li>
+                        <li>• 关键词点击添加到描述</li>
+                        <li>• 润色功能(✨按钮)</li>
+                    </ul>
+                </div>
+                
+                <div class="module-card">
+                    <h3>🔗 上下文关联 <span class="tag tag-success">创新</span></h3>
+                    <ul>
+                        <li>• 记录上次选择的风格</li>
+                        <li>• 场景元素延续</li>
+                        <li>• 光线氛围延续</li>
+                        <li>• 下次生成自动关联</li>
+                        <li>• 例:河流场景→河边洗衣服</li>
+                    </ul>
+                </div>
+                
+                <div class="module-card">
+                    <h3>🧠 心理状态分析 <span class="tag tag-warning">辅助</span></h3>
+                    <ul>
+                        <li>• 分析图片色彩/构图</li>
+                        <li>• 评估情绪指数(1-10)</li>
+                        <li>• 评估压力指数(1-10)</li>
+                        <li>• 提取心理关键词</li>
+                        <li>• 提供正面引导建议</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 五、人机界面 -->
+        <div class="section">
+            <h2 class="section-title">🖥️ 五、人机界面布局</h2>
+            <div class="svg-container">
+                <svg width="100%" height="500" viewBox="0 0 900 500">
+                    <!-- 浏览器框架 -->
+                    <rect x="10" y="10" width="880" height="480" rx="10" fill="rgba(30,30,40,0.9)" stroke="#555" stroke-width="2"/>
+                    
+                    <!-- 浏览器标题栏 -->
+                    <rect x="10" y="10" width="880" height="30" rx="10" fill="#333"/>
+                    <rect x="10" y="30" width="880" height="10" fill="#333"/>
+                    <circle cx="30" cy="25" r="6" fill="#ff5f56"/>
+                    <circle cx="50" cy="25" r="6" fill="#ffbd2e"/>
+                    <circle cx="70" cy="25" r="6" fill="#27ca40"/>
+                    
+                    <!-- Header -->
+                    <rect x="30" y="60" width="840" height="40" rx="5" fill="rgba(168,85,247,0.2)"/>
+                    <text x="60" y="85" fill="#a855f7" font-size="14" font-weight="bold">🌙 梦境创作</text>
+                    
+                    <!-- 左侧面板 -->
+                    <rect x="30" y="115" width="300" height="350" rx="10" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.1)"/>
+                    
+                    <!-- 梦境类型 -->
+                    <text x="50" y="140" fill="#a78bfa" font-size="12">🎭 梦境类型</text>
+                    <rect x="50" y="150" width="260" height="50" rx="8" fill="rgba(168,85,247,0.1)" stroke="rgba(168,85,247,0.3)"/>
+                    <text x="70" y="180" fill="#fff" font-size="14">🌙 美梦</text>
+                    
+                    <!-- 艺术风格 -->
+                    <text x="50" y="220" fill="#a78bfa" font-size="12">🎨 艺术风格</text>
+                    <rect x="50" y="230" width="260" height="50" rx="8" fill="rgba(168,85,247,0.1)" stroke="rgba(168,85,247,0.3)"/>
+                    <text x="70" y="260" fill="#fff" font-size="14">写实风格</text>
+                    
+                    <!-- 输入区域 -->
+                    <text x="50" y="300" fill="#a78bfa" font-size="12">✏️ 描述你的梦境</text>
+                    <rect x="50" y="310" width="260" height="80" rx="8" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.2)"/>
+                    <text x="65" y="340" fill="#888" font-size="11">我在一片紫色的花海中漂浮...</text>
+                    
+                    <!-- 关键词区 -->
+                    <text x="50" y="410" fill="#a78bfa" font-size="12">✨ 相关关键词</text>
+                    <rect x="50" y="420" width="260" height="40" rx="8" fill="rgba(59,130,246,0.2)"/>
+                    <rect x="60" y="430" width="50" height="22" rx="11" fill="rgba(168,85,247,0.3)"/>
+                    <text x="85" y="445" fill="#fff" font-size="10">漂浮</text>
+                    <rect x="115" y="430" width="50" height="22" rx="11" fill="rgba(168,85,247,0.3)"/>
+                    <text x="140" y="445" fill="#fff" font-size="10">飞行</text>
+                    <rect x="170" y="430" width="50" height="22" rx="11" fill="rgba(168,85,247,0.3)"/>
+                    <text x="195" y="445" fill="#fff" font-size="10">星空</text>
+                    
+                    <!-- 右侧区域 -->
+                    <rect x="350" y="115" width="520" height="350" rx="10" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.1)"/>
+                    
+                    <!-- 候选图片 -->
+                    <text x="370" y="140" fill="#a78bfa" font-size="12">🖼️ 四种不同风格的梦境</text>
+                    
+                    <!-- 图片1 -->
+                    <rect x="370" y="155" width="235" height="130" rx="8" fill="rgba(255,255,255,0.1)"/>
+                    <text x="487" y="220" text-anchor="middle" fill="#666" font-size="10">晨曦 · 中景 · 宁静</text>
+                    
+                    <!-- 图片2 -->
+                    <rect x="615" y="155" width="235" height="130" rx="8" fill="rgba(255,255,255,0.1)"/>
+                    <text x="732" y="220" text-anchor="middle" fill="#666" font-size="10">黄昏 · 远景 · 魔幻</text>
+                    
+                    <!-- 图片3 -->
+                    <rect x="370" y="295" width="235" height="130" rx="8" fill="rgba(255,255,255,0.1)"/>
+                    <text x="487" y="360" text-anchor="middle" fill="#666" font-size="10">夜晚 · 鸟瞰 · 神秘</text>
+                    
+                    <!-- 图片4 -->
+                    <rect x="615" y="295" width="235" height="130" rx="8" fill="rgba(255,255,255,0.1)"/>
+                    <text x="732" y="360" text-anchor="middle" fill="#666" font-size="10">暮色 · 近景 · 温馨</text>
+                    
+                    <!-- 底部按钮 -->
+                    <rect x="30" y="480" width="840" height="0" rx="0"/>
+                    
+                    <!-- 标注 -->
+                    <text x="170" y="500" fill="#888" font-size="10">👆 点击图片选择</text>
+                    <text x="550" y="500" fill="#888" font-size="10">✨ 润色描述 | 🤔 不满意重新生成 | 🧠 心理分析</text>
+                </svg>
+            </div>
+            <p style="text-align: center; color: #888; margin-top: 15px; font-size: 0.9em;">
+                梦境创作页面布局示意 - 用户在左侧输入描述，系统在右侧生成4种不同风格的图片供选择
+            </p>
+        </div>
+        
+        <!-- 六、文件结构 -->
+        <div class="section">
+            <h2 class="section-title">📁 六、项目文件结构</h2>
+            <pre style="background: rgba(0,0,0,0.3); padding: 20px; border-radius: 10px; overflow-x: auto; font-size: 0.85em; line-height: 1.6;">
+<span style="color: #a78bfa;">src/</span>
+├── <span style="color: #60a5fa;">app/</span>                          <span style="color: #888;"># Next.js App Router</span>
+│   ├── <span style="color: #60a5fa;">api/</span>                        <span style="color: #888;"># API 路由 (后端接口)</span>
+│   │   ├── generate-image-batch/   <span style="color: #34d399;"># 多风格图片生成</span>
+│   │   ├── generate-keywords/       <span style="color: #34d399;"># 动态关键词生成</span>
+│   │   ├── polish-text/             <span style="color: #34d399;"># 语言润色</span>
+│   │   ├── analyze-mood/           <span style="color: #34d399;"># 心理状态分析</span>
+│   │   ├── adjust-image/           <span style="color: #34d399;"># 图片调整</span>
+│   │   ├── generate-video/         <span style="color: #34d399;"># 视频生成</span>
+│   │   ├── dreams/                 <span style="color: #f59e0b;"># 梦境CRUD</span>
+│   │   └── auth/                   <span style="color: #f59e0b;"># 用户认证</span>
+│   ├── <span style="color: #60a5fa;">dream/</span>                     <span style="color: #888;"># 梦境创作页面</span>
+│   ├── <span style="color: #60a5fa;">dreams/</span>                    <span style="color: #888;"># 梦境库页面</span>
+│   └── <span style="color: #60a5fa;">profile/</span>                  <span style="color: #888;"># 个人中心</span>
+├── <span style="color: #a78bfa;">components/</span>                    <span style="color: #888;"># 组件库</span>
+│   └── <span style="color: #60a5fa;">ui/</span>                        <span style="color: #888;"># shadcn/ui 组件</span>
+└── <span style="color: #a78bfa;">storage/</span>                       <span style="color: #888;"># 存储层</span>
+    └── database/                   <span style="color: #888;"># Supabase 配置</span>
+            </pre>
+        </div>
+    </div>
+</body>
+</html>

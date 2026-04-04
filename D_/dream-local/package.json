@@ -1,0 +1,11 @@
+{
+  "name": "dream-local",
+  "version": "1.0.0",
+  "description": "梦境可视化本地版 - 免费SD生图",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

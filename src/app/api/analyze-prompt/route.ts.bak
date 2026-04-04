@@ -1,0 +1,202 @@
+import { NextRequest } from 'next/server';
+import { invokeQwen } from '@/lib/qwen-client';
+
+/**
+ * 提示词润色 - 分析句子成分，生成中英双语提示词
+ */
+const POLISH_PROMPT = `You are a professional AI art prompt engineer. Analyze the Chinese input and generate bilingual prompts for Stable Diffusion.
+
+## Analysis Steps (MUST FOLLOW)
+
+### Step 1: Sentence Component Analysis
+Parse the input and identify:
+- **Subject (主体)**: Who/what is the main focus?
+- **Action (动作)**: What are they doing?
+- **Setting (场景)**: Where/when is this happening?
+- **Mood/Atmosphere (氛围)**: What feeling should the image convey?
+
+### Step 2: Detailed Description
+For EACH identified element, describe in extreme detail in BOTH languages.
+
+### Step 3: Output Format (Strict JSON)
+{
+  "analysis": {
+    "subject": "identified main subject",
+    "action": "what's happening", 
+    "setting": "where/when",
+    "mood": "atmosphere"
+  },
+  "positivePromptEN": "Detailed ENGLISH prompt for SD, 100-150 words, rich description with all details",
+  "positivePromptCN": "详细的中文描述给用户看，100-150字，包含所有细节",
+  "negativePrompt": ["english_negative1", "english_negative2", "..."],
+  "keywords": ["中文关键词"],
+  "mood": "中文氛围",
+  "model": "anime | realistic | default"
+}
+
+## CRITICAL RULES
+1. positivePromptEN: MUST be ENGLISH only, for SD use
+2. positivePromptCN: MUST be CHINESE only, for user display - THIS IS REQUIRED, NOT OPTIONAL
+3. negativePrompt: Array of English negative prompts (min 5)
+4. Both positive prompts should describe the SAME content
+5. DO NOT leave positivePromptCN empty or same as input - ALWAYS generate detailed Chinese description
+
+## Examples
+
+Input: 树叶
+Output: {
+  "analysis": {
+    "subject": "树叶 (tree leaves)",
+    "action": "gently swaying in the wind",
+    "setting": "autumn forest, soft morning light",
+    "mood": "peaceful, natural, serene"
+  },
+  "positivePromptEN": "Beautiful autumn tree leaves, various shades of golden yellow and vibrant orange, intricate vein patterns visible on translucent leaf surfaces, gently swaying in the soft breeze, backlit by warm morning sunlight creating a glowing effect, some leaves falling and spinning in the air, shallow depth of field with bokeh background, dewdrops glistening on leaf edges, rich textures and natural colors, photorealistic, highly detailed, 8k uhd, masterpiece, best quality, soft natural lighting, macro photography style",
+  "positivePromptCN": "美丽的秋日树叶，金黄与橙红交织的丰富色彩，叶脉纹理在半透明的叶片上清晰可见，在微风中轻轻摇曳，温暖的晨光从背后照射形成通透的光晕效果，几片叶子在空中旋转飘落，浅景深背景虚化，露珠在叶缘闪烁，丰富的纹理和自然的色彩，照片级真实感，超精细，8K超高清，杰作，最佳画质，柔和自然光，微距摄影风格",
+  "negativePrompt": ["ugly", "blurry", "low quality", "bad anatomy", "cartoon", "anime", "illustration", "artificial", "plastic", "fake", "oversaturated", "harsh lighting"],
+  "keywords": ["树叶", "秋天", "自然"],
+  "mood": "宁静自然",
+  "model": "realistic"
+}
+
+Input: 雷电将军在樱花树下
+Output: {
+  "analysis": {
+    "subject": "雷电将军 (Raiden Shogun from Genshin Impact)",
+    "action": "standing under cherry blossom trees",
+    "setting": "Inazuma, afternoon, cherry blossom season", 
+    "mood": "elegant, mysterious, serene"
+  },
+  "positivePromptEN": "Raiden Shogun from Genshin Impact, beautiful female character with long flowing purple hair and purple eyes, wearing elegant dark purple Japanese kimono with gold trim and Electro Vision glowing on chest, standing gracefully under pink cherry blossom trees, sakura petals falling and floating in the breeze, traditional Japanese garden background, afternoon golden sunlight filtering through branches, ethereal electro particles floating around her, calm mysterious expression, anime style, masterpiece, best quality, ultra detailed, 8k, highly detailed, cinematic composition, soft lighting",
+  "positivePromptCN": "原神中的雷电将军，美丽的女性角色，紫色长发随风飘动，紫色眼眸深邃迷人，身着华丽的深紫色日式和服，金色镶边点缀，胸前神之眼闪烁着光芒，优雅地站在粉色樱花树下，樱花花瓣随风飘落，传统日式庭园背景，午后金色阳光透过树枝洒落，周身环绕着飘渺的雷元素粒子，表情平静神秘，动漫风格，杰作，最佳画质，超精细，8K，电影级构图，柔和光影",
+  "negativePrompt": ["ugly", "blurry", "low quality", "bad anatomy", "realistic", "photo", "3d render", "western cartoon", "disfigured", "bad hands"],
+  "keywords": ["雷电将军", "樱花", "和服"],
+  "mood": "优雅神秘",
+  "model": "anime"
+}`;
+
+/**
+ * 解析AI结果
+ */
+function parseAIResult(aiResult: string, fallback: any) {
+  const cleaned = aiResult.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * 根据提示词自动选择模型
+ */
+function autoSelectModel(prompt: string): string {
+  const lowerPrompt = prompt.toLowerCase();
+  if (lowerPrompt.includes('anime style') || lowerPrompt.includes('anime art')) {
+    return 'anime';
+  }
+  if (lowerPrompt.includes('photorealistic') || lowerPrompt.includes('realistic')) {
+    return 'realistic';
+  }
+  return 'default';
+}
+
+/**
+ * POST /api/analyze-prompt
+ * 提示词润色API - 返回中英双语提示词
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const { userInput, uploadedImages, selectedKeywords } = await request.json();
+    
+    const inputSummary = userInput?.trim() || '';
+    const keywordSummary = selectedKeywords?.join('、') || '';
+    
+    console.log('[AI分析] 用户输入:', inputSummary.substring(0, 100));
+
+    const userContent = `## 用户梦境描述
+"${inputSummary || '（无文字描述）'}"
+
+## 用户选择的标签
+${keywordSummary || '（无标签）'}
+
+请分析并生成中英双语的提示词。`;
+
+    const messages = [
+      { role: 'system' as const, content: POLISH_PROMPT },
+      { role: 'user' as const, content: userContent }
+    ];
+
+    const { content: aiResult, provider } = await invokeQwen(messages, {
+      temperature: 0.7,
+    });
+
+    console.log(`[AI分析] 使用${provider}完成`);
+    console.log('[AI分析] AI原始返回:', aiResult.substring(0, 500));
+
+    const fallback = {
+      analysis: { 
+        subject: inputSummary || '梦境', 
+        action: '在梦境中', 
+        setting: '神秘的梦境空间', 
+        mood: '神秘' 
+      },
+      positivePromptEN: inputSummary || 'dream scene',
+      positivePromptCN: inputSummary || '梦境场景',
+      negativePrompt: ['ugly', 'blurry', 'low quality', 'bad anatomy', 'worst quality'],
+      keywords: selectedKeywords || [],
+      mood: '平静',
+      model: 'default'
+    };
+    
+    const analysisResult = parseAIResult(aiResult, fallback);
+    console.log('[AI分析] 解析结果:', JSON.stringify(analysisResult, null, 2));
+
+    // 确保有中文描述 - 如果没有，使用原始输入或英文提示词
+    if (!analysisResult.positivePromptCN || analysisResult.positivePromptCN === inputSummary) {
+      // 如果 AI 没有生成中文描述，使用原始输入作为后备
+      analysisResult.positivePromptCN = inputSummary || '梦境场景';
+    }
+
+    // 确保反向提示词至少有5个
+    let negativePrompt = analysisResult.negativePrompt || fallback.negativePrompt;
+    if (!Array.isArray(negativePrompt)) {
+      negativePrompt = fallback.negativePrompt;
+    }
+    if (negativePrompt.length < 5) {
+      negativePrompt = [...negativePrompt, ...fallback.negativePrompt.slice(0, 5 - negativePrompt.length)];
+    }
+
+    // 选择模型
+    let selectedModel = analysisResult.model || 'default';
+    if (!selectedModel || selectedModel === 'default') {
+      selectedModel = autoSelectModel(analysisResult.positivePromptEN || '');
+    }
+    
+    return new Response(JSON.stringify({
+      success: true,
+      model: selectedModel,
+      polishedPrompt: analysisResult.positivePromptEN,   // 英文 - 给SD用
+      polishedPromptCN: analysisResult.positivePromptCN, // 中文 - 给用户看
+      negativePrompt: negativePrompt,                    // 英文 - 给SD用
+      analysis: analysisResult.analysis,
+      keywords: analysisResult.keywords || selectedKeywords || [],
+      mood: analysisResult.mood || '平静',
+      provider
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+  } catch (error) {
+    console.error('[AI分析] 错误:', error);
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'AI分析失败，请稍后重试',
+      details: error instanceof Error ? error.message : String(error)
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+}

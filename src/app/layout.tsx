@@ -1,0 +1,62 @@
+import type { Metadata } from 'next';
+import { Inspector } from 'react-dev-inspector';
+import { Providers } from '@/components/Providers';
+import MainLayout from '@/components/MainLayout';
+import PageTransition from '@/components/PageTransition';
+import GenerationManager from '@/components/GenerationManager';
+import '@/lib/init-cleanup'; // 启动定时清理任务（每天清理一次草稿数据）
+import './globals.css';
+
+export const metadata: Metadata = {
+  title: {
+    default: '忆梦空间',
+    template: '%s | 忆梦空间',
+  },
+  description:
+    '忆梦空间 - AI 驱动的梦境可视化心理辅助系统。通过文字描述梦境，AI 生成对应图像，探索潜意识的奥秘。',
+  keywords: [
+    '忆梦空间',
+    '梦境可视化',
+    'AI 绘图',
+    '心理评估',
+    '梦境分析',
+    '潜意识探索',
+    '艺术创作',
+  ],
+  authors: [{ name: '忆梦空间' }],
+  openGraph: {
+    title: '忆梦空间 | 探索你的梦境世界',
+    description:
+      '通过 AI 将你的梦境可视化，探索潜意识的心理含义。',
+    siteName: '忆梦空间',
+    locale: 'zh_CN',
+    type: 'website',
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  const isDev = process.env.COZE_PROJECT_ENV === 'DEV';
+
+  return (
+    <html lang="zh-CN" suppressHydrationWarning>
+      <body className="antialiased">
+        <Providers>
+          {isDev && <Inspector />}
+          <MainLayout>
+            {children}
+          </MainLayout>
+          <PageTransition />
+          <GenerationManager />
+        </Providers>
+      </body>
+    </html>
+  );
+}

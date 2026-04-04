@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>梦境可视化心理辅助系统 - 设计文档</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body { 
+      font-family: "SimSun", "宋体", "Microsoft YaHei", sans-serif; 
+      background: #fff; 
+      color: #000;
+      padding: 45px 65px;
+      max-width: 950px;
+      margin: 0 auto;
+      line-height: 1.9;
+      font-size: 14px;
+    }
+    
+    h1 {
+      font-size: 22px;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 25px;
+      letter-spacing: 3px;
+    }
+    
+    h2 {
+      font-size: 16px;
+      font-weight: bold;
+      margin-top: 28px;
+      margin-bottom: 12px;
+    }
+    
+    h3 {
+      font-size: 14px;
+      font-weight: bold;
+      margin-top: 18px;
+      margin-bottom: 10px;
+    }
+    
+    .instruction {
+      background: #f5f5f5;
+      padding: 10px 14px;
+      margin-bottom: 18px;
+      font-size: 11px;
+      color: #555;
+      border-left: 3px solid #999;
+      line-height: 1.8;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 12px;
+    }
+    th, td {
+      border: 1px solid #000;
+      padding: 8px 10px;
+      text-align: left;
+    }
+    th {
+      background: #e8e8e8;
+      font-weight: bold;
+    }
+    
+    p {
+      text-indent: 2em;
+      margin-bottom: 10px;
+    }
+    
+    ul, ol {
+      margin-left: 2em;
+      margin-bottom: 10px;
+    }
+    li {
+      margin-bottom: 5px;
+    }
+    
+    .page-break {
+      page-break-after: always;
+      margin-top: 50px;
+    }
+    
+    .page-num {
+      text-align: center;
+      margin-top: 50px;
+      font-size: 12px;
+      color: #666;
+    }
+    
+    /* ============ 模块图 ============ */
+    .diagram {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 18px 0;
+      font-size: 13px;
+    }
+    
+    .sys-box {
+      background: #ddd;
+      border: 1px solid #000;
+      padding: 10px 35px;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+    
+    .connector {
+      width: 2px;
+      height: 22px;
+      background: #000;
+    }
+    
+    .modules {
+      display: flex;
+      gap: 5px;
+    }
+    
+    .mod {
+      width: 115px;
+      border: 1px solid #000;
+      background: #f5f5f5;
+    }
+    .mod-title {
+      padding: 10px 5px;
+      text-align: center;
+      font-weight: bold;
+      font-size: 12px;
+      border-bottom: 1px solid #000;
+      background: #e5e5e5;
+    }
+    .mod-subs {
+      padding: 8px 0;
+    }
+    .mod-sub {
+      padding: 7px 5px;
+      text-align: center;
+      font-size: 10px;
+      border-bottom: 1px solid #ccc;
+    }
+    .mod-sub:last-child {
+      border-bottom: none;
+    }
+    
+    /* 流程图 */
+    .flow {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 15px;
+      background: #fafafa;
+      border: 1px solid #ddd;
+      margin: 12px 0;
+    }
+    .flow-box {
+      padding: 8px 15px;
+      border: 1px solid #000;
+      background: #fff;
+      font-size: 12px;
+    }
+    .flow-arrow {
+      font-size: 14px;
+      font-weight: bold;
+    }
+    
+    /* 界面卡片 */
+    .ui-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin: 12px 0;
+    }
+    .ui-card {
+      border: 1px solid #ddd;
+      padding: 12px;
+      background: #fafafa;
+    }
+    .ui-card h4 {
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+    .ui-card ul {
+      list-style: none;
+      margin: 0;
+      font-size: 11px;
+    }
+    .ui-card li {
+      padding: 3px 0;
+      padding-left: 10px;
+      position: relative;
+    }
+    .ui-card li::before {
+      content: '·';
+      position: absolute;
+      left: 0;
+    }
+    
+    /* 界面截图占位 */
+    .screenshot {
+      border: 1px solid #ddd;
+      padding: 30px;
+      text-align: center;
+      background: #fafafa;
+      color: #999;
+      margin: 12px 0;
+      font-size: 12px;
+    }
+    
+    /* 测试结果表 */
+    .test-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0;
+      font-size: 11px;
+    }
+    .test-table th, .test-table td {
+      border: 1px solid #000;
+      padding: 6px 8px;
+    }
+    .test-table th {
+      background: #e8e8e8;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ==================== 第一章 需求分析 ==================== -->
+<h1>第一章 需求分析</h1>
+
+<div class="instruction">
+【填写说明：本部分内容建议不超过1000字，以300字以内为宜，简要说明为什么开发本作品，是否存在竞品，对标什么作品以及面向的用户、主要功能、主要性能等。如果存在竞品，建议有竞品分析表格，从多个维度分析本作品与竞品作品比较】
+</div>
+
+<h2>1.1 项目背景</h2>
+<p>梦境是人类潜意识活动的窗口，记录和分析梦境有助于自我认知和心理健康。然而，梦境往往是模糊、片段化的，难以用语言准确描述。传统的梦境记录方式（如日记）缺乏直观性，无法有效捕捉梦境的视觉体验。</p>
+
+<p>本项目旨在通过AI技术，将用户的文字梦境描述转化为直观的图像和视频，提供一种全新的梦境记录与探索方式，帮助用户更好地理解和分析自己的潜意识。</p>
+
+<h2>1.2 主要功能</h2>
+<ul>
+  <li>梦境描述输入：支持自然语言描述梦境，提供智能关键词联想</li>
+  <li>AI图像生成：基于Stable Diffusion生成第一人称视角的梦境图像</li>
+  <li>视频串联：将多张梦境图像合成为连贯的短视频</li>
+  <li>心理评估：基于梦境内容进行简单的心理状态分析</li>
+  <li>梦境库管理：收藏、保存、查看历史梦境记录</li>
+</ul>
+
+<h2>1.3 性能指标</h2>
+<ul>
+  <li>图像生成时间：本地SD环境下约10-30秒</li>
+  <li>关键词联想响应：< 3秒</li>
+  <li>支持多端访问，响应式布局</li>
+  <li>数据本地存储，保护用户隐私</li>
+</ul>
+
+<h2>1.4 竞品分析</h2>
+<table>
+  <tr>
+    <th>维度</th>
+    <th>梦境可视化</th>
+    <th>DreamJourney</th>
+    <th>Shadow Work</th>
+  </tr>
+  <tr>
+    <td>核心功能</td>
+    <td>AI生图+视频</td>
+    <td>AI对话分析</td>
+    <td>梦境词典</td>
+  </tr>
+  <tr>
+    <td>第一人称视角</td>
+    <td>支持</td>
+    <td>不支持</td>
+    <td>不支持</td>
+  </tr>
+  <tr>
+    <td>视频生成</td>
+    <td>支持</td>
+    <td>不支持</td>
+    <td>不支持</td>
+  </tr>
+  <tr>
+    <td>心理评估</td>
+    <td>基础分析</td>
+    <td>深度分析</td>
+    <td>无</td>
+  </tr>
+  <tr>
+    <td>成本</td>
+    <td>免费（本地SD）</td>
+    <td>订阅制</td>
+    <td>免费</td>
+  </tr>
+</table>
+
+<p>本作品优势：首创"第一人称沉浸式"梦境可视化体验，结合视频生成功能，提供更完整的梦境还原。</p>
+
+<div class="page-num">- 1 -</div>
+
+<!-- ==================== 第二章 概要设计 ==================== -->
+<div class="page-break">
+<h1>第二章 概要设计</h1>
+
+<div class="instruction">
+【填写说明：将需求分析结果分解成功能模块以及模块的层次结构、调用关系、模块间接口以及人机界面等，建议用图体现内容，不宜全文字描述。建议图文总体不超过A4纸两页，以1页为宜。】
+</div>
+
+<h2>2.1 模块层次结构</h2>
+
+<div class="diagram">
+  <div class="sys-box">梦境可视化心理辅助系统</div>
+  <div class="connector"></div>
+  <div class="modules">
+    <div class="mod">
+      <div class="mod-title">用户认证</div>
+      <div class="mod-subs">
+        <div class="mod-sub">登录注册</div>
+        <div class="mod-sub">Token管理</div>
+      </div>
+    </div>
+    <div class="mod">
+      <div class="mod-title">梦境创作</div>
+      <div class="mod-subs">
+        <div class="mod-sub">描述输入</div>
+        <div class="mod-sub">关键词联想</div>
+        <div class="mod-sub">智能润色</div>
+      </div>
+    </div>
+    <div class="mod">
+      <div class="mod-title">AI图像生成</div>
+      <div class="mod-subs">
+        <div class="mod-sub">提示词增强</div>
+        <div class="mod-sub">SD生成</div>
+      </div>
+    </div>
+    <div class="mod">
+      <div class="mod-title">视频生成</div>
+      <div class="mod-subs">
+        <div class="mod-sub">图片串联</div>
+        <div class="mod-sub">视频合成</div>
+      </div>
+    </div>
+    <div class="mod">
+      <div class="mod-title">心理评估</div>
+      <div class="mod-subs">
+        <div class="mod-sub">问卷分析</div>
+        <div class="mod-sub">色彩解读</div>
+      </div>
+    </div>
+    <div class="mod">
+      <div class="mod-title">梦境库管理</div>
+      <div class="mod-subs">
+        <div class="mod-sub">收藏保存</div>
+        <div class="mod-sub">历史记录</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h2>2.2 系统五层架构</h2>
+<table>
+  <tr>
+    <th>层次</th>
+    <th>名称</th>
+    <th>说明</th>
+  </tr>
+  <tr>
+    <td>1</td>
+    <td>表示层</td>
+    <td>Next.js + Tailwind CSS，响应式UI组件</td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td>业务逻辑层</td>
+    <td>React Hooks，状态管理，表单处理</td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td>AI服务层</td>
+    <td>豆包大模型（关键词/润色）+ Stable Diffusion（图像）</td>
+  </tr>
+  <tr>
+    <td>4</td>
+    <td>数据访问层</td>
+    <td>localStorage + Supabase后端API</td>
+  </tr>
+  <tr>
+    <td>5</td>
+    <td>基础设施层</td>
+    <td>Vercel部署，cpolar内网穿透（本地SD）</td>
+  </tr>
+</table>
+
+<h2>2.3 模块调用关系</h2>
+<p><strong>正向调用流程：</strong></p>
+<div class="flow">
+  <div class="flow-box">用户认证</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-box">梦境创作</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-box">AI图像生成</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-box">视频生成</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-box">梦境库管理</div>
+</div>
+
+<p><strong>独立调用：</strong>心理评估模块可独立运行，直接读取用户历史图像进行色彩与构图分析。</p>
+
+<h2>2.4 人机界面</h2>
+<div class="ui-grid">
+  <div class="ui-card">
+    <h4>首页/创作界面</h4>
+    <ul>
+      <li>顶部导航栏</li>
+      <li>梦境类型选择</li>
+      <li>艺术风格切换</li>
+      <li>文本输入+标签联想</li>
+      <li>生成进度展示</li>
+    </ul>
+  </div>
+  <div class="ui-card">
+    <h4>梦境库界面</h4>
+    <ul>
+      <li>卡片式列表展示</li>
+      <li>缩略图网格</li>
+      <li>视频播放组件</li>
+      <li>删除/编辑操作</li>
+    </ul>
+  </div>
+  <div class="ui-card">
+    <h4>心理评估界面</h4>
+    <ul>
+      <li>问卷表单</li>
+      <li>梦境片段预览</li>
+      <li>分析结果图表</li>
+      <li>解读建议展示</li>
+    </ul>
+  </div>
+  <div class="ui-card">
+    <h4>个人中心</h4>
+    <ul>
+      <li>用户信息</li>
+      <li>统计数据</li>
+      <li>主题切换</li>
+      <li>设置选项</li>
+    </ul>
+  </div>
+</div>
+
+<div class="page-num">- 2 -</div>
+</div>
+
+<!-- ==================== 第三章 详细设计 ==================== -->
+<div class="page-break">
+<h1>第三章 详细设计</h1>
+
+<div class="instruction">
+【填写说明：包括但不限于：界面设计、数据库设计(如果有)、关键算法。界面设计建议用作品实际界面，建议包括典型使用流程；数据库设计建议用表格、ER图或UML方式，说明文字简明扼要，违背范式的设计建议说明理由；关键算法也可以替换为关键技术、技术创新等。本部分不宜大篇幅铺陈，建议突出重点痛点难点特点。】
+</div>
+
+<h2>3.1 界面设计</h2>
+
+<h3>3.1.1 主要界面</h3>
+
+<div class="screenshot">【首页界面截图 - 渐变紫色背景，云朵入口按钮】</div>
+
+<div class="screenshot">【创作界面截图 - 梦境类型选择，艺术风格，标签联想】</div>
+
+<h3>3.1.2 典型使用流程</h3>
+<div class="flow">
+  <div class="flow-box">打开首页</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-box">点击进入</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-box">输入描述</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-box">选择标签</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-box">生成图片</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-box">保存/生成视频</div>
+</div>
+
+<h2>3.2 数据库设计</h2>
+
+<h3>3.2.1 主要数据表</h3>
+<table>
+  <tr>
+    <th>表名</th>
+    <th>字段</th>
+    <th>说明</th>
+  </tr>
+  <tr>
+    <td>users</td>
+    <td>id, username, nickname, password_hash, created_at</td>
+    <td>用户信息表</td>
+  </tr>
+  <tr>
+    <td>dream_collections</td>
+    <td>id, user_id, title, cover_url, has_video, created_at</td>
+    <td>梦境集</td>
+  </tr>
+  <tr>
+    <td>dreams</td>
+    <td>id, collection_id, prompt, image_url, video_url, dream_type, art_style, created_at</td>
+    <td>梦境记录</td>
+  </tr>
+  <tr>
+    <td>assessments</td>
+    <td>id, user_id, dream_ids, answers, result, created_at</td>
+    <td>心理评估记录</td>
+  </tr>
+</table>
+
+<h3>3.2.2 ER图</h3>
+<div class="screenshot">【ER图：Users 1:N DreamCollections 1:N Dreams 1:N Assessments】</div>
+
+<h2>3.3 关键技术</h2>
+
+<h3>3.3.1 提示词增强算法</h3>
+<p>基于豆包大模型对用户输入进行润色增强，自动添加梦境类型关键词、光影氛围描述、视角强化等，生成更适合SD的提示词。</p>
+
+<h3>3.3.2 第一人称视角控制</h3>
+<p>在提示词中固定添加"first person POV"、"第一人称视角"等控制词，确保生成的图像符合用户主观体验。</p>
+
+<h3>3.3.3 本地SD集成</h3>
+<p>通过cpolar将本地Stable Diffusion WebUI暴露到公网，前端通过API调用生成图像，实现免费无限生图。</p>
+
+<div class="page-num">- 3 -</div>
+</div>
+
+<!-- ==================== 第四章 测试报告 ==================== -->
+<div class="page-break">
+<h1>第四章 测试报告</h1>
+
+<div class="instruction">
+【填写说明：包括测试报告和技术指标。为了保证作品质量，建议多进行测试，并将测试用例、测试过程、测试结果、修正过程或结果形成文档，也可以将本标题修改为主要测试，撰写主要测试过程结果及其修正；根据测试结果，形成多维度技术指标，包括：运行速度、安全性、扩展性、部署方便性和可用性等。本部分简要说明即可，减少常识性内容。】
+</div>
+
+<h2>4.1 主要测试</h2>
+
+<h3>4.1.1 功能测试</h3>
+<table class="test-table">
+  <tr>
+    <th>测试项</th>
+    <th>测试用例</th>
+    <th>预期结果</th>
+    <th>实际结果</th>
+    <th>状态</th>
+  </tr>
+  <tr>
+    <td>用户登录</td>
+    <td>输入正确账号密码</td>
+    <td>登录成功跳转首页</td>
+    <td>符合预期</td>
+    <td>通过</td>
+  </tr>
+  <tr>
+    <td>关键词生成</td>
+    <td>输入"飞翔"触发联想</td>
+    <td>返回10个相关标签</td>
+    <td>返回8-10个标签</td>
+    <td>通过</td>
+  </tr>
+  <tr>
+    <td>图像生成</td>
+    <td>输入梦境描述点击生成</td>
+    <td>返回2张图像</td>
+    <td>正常返回图像</td>
+    <td>通过</td>
+  </tr>
+  <tr>
+    <td>视频生成</td>
+    <td>选择2张以上图片</td>
+    <td>生成串联视频</td>
+    <td>视频正常播放</td>
+    <td>通过</td>
+  </tr>
+  <tr>
+    <td>主题切换</td>
+    <td>点击切换日/夜间模式</td>
+    <td>界面样式变化</td>
+    <td>渐变过渡正常</td>
+    <td>通过</td>
+  </tr>
+</table>
+
+<h3>4.1.2 兼容性测试</h3>
+<table class="test-table">
+  <tr>
+    <th>浏览器</th>
+    <th>版本</th>
+    <th>测试结果</th>
+  </tr>
+  <tr>
+    <td>Chrome</td>
+    <td>120+</td>
+    <td>通过</td>
+  </tr>
+  <tr>
+    <td>Firefox</td>
+    <td>121+</td>
+    <td>通过</td>
+  </tr>
+  <tr>
+    <td>Safari</td>
+    <td>16+</td>
+    <td>通过</td>
+  </tr>
+  <tr>
+    <td>Edge</td>
+    <td>120+</td>
+    <td>通过</td>
+  </tr>
+</table>
+
+<h2>4.2 技术指标</h2>
+<table>
+  <tr>
+    <th>指标维度</th>
+    <th>指标值</th>
+    <th>说明</th>
+  </tr>
+  <tr>
+    <td>运行速度</td>
+    <td>页面加载 < 2s</td>
+    <td>首屏加载时间</td>
+  </tr>
+  <tr>
+    <td>AI响应</td>
+    <td>关键词 < 3s，润色 < 5s</td>
+    <td>豆包API响应时间</td>
+  </tr>
+  <tr>
+    <td>图像生成</td>
+    <td>10-30s/张</td>
+    <td>取决于本地SD性能</td>
+  </tr>
+  <tr>
+    <td>安全性</td>
+    <td>Token认证</td>
+    <td>JWT + RefreshToken</td>
+  </tr>
+  <tr>
+    <td>扩展性</td>
+    <td>模块化设计</td>
+    <td>支持功能独立扩展</td>
+  </tr>
+  <tr>
+    <td>可用性</td>
+    <td>响应式布局</td>
+    <td>支持手机/平板/PC</td>
+  </tr>
+</table>
+
+<div class="page-num">- 4 -</div>
+</div>
+
+<!-- ==================== 第五章 安装及使用 ==================== -->
+<div class="page-break">
+<h1>第五章 安装及使用</h1>
+
+<div class="instruction">
+【填写说明：简要说明安装环境要求、安装过程、主要流程等，建议包含默认安装和典型使用流程。】
+</div>
+
+<h2>5.1 安装环境要求</h2>
+<ul>
+  <li><strong>Node.js</strong>：v18.0.0 或更高版本</li>
+  <li><strong>Stable Diffusion WebUI</strong>：秋葉整合包 v4.11.1 或兼容版本</li>
+  <li><strong>cpolar</strong>：用于内网穿透，暴露本地SD到公网</li>
+  <li><strong>浏览器</strong>：Chrome 120+ / Firefox 121+ / Safari 16+ / Edge 120+</li>
+</ul>
+
+<h2>5.2 安装过程</h2>
+
+<h3>5.2.1 默认安装</h3>
+<ol>
+  <li>克隆项目代码到本地</li>
+  <li>执行 <code>pnpm install</code> 安装依赖</li>
+  <li>启动本地SD WebUI，确保API模式开启</li>
+  <li>配置cpolar隧道，获取公网地址</li>
+  <li>在SD配置中填入公网地址</li>
+  <li>执行 <code>pnpm dev</code> 启动项目</li>
+  <li>浏览器访问 http://localhost:5000</li>
+</ol>
+
+<h3>5.2.2 云端部署</h3>
+<ol>
+  <li>将代码推送到GitHub</li>
+  <li>连接Vercel进行部署</li>
+  <li>配置环境变量（AI服务等）</li>
+  <li>自动构建并上线</li>
+</ol>
+
+<h2>5.3 典型使用流程</h2>
+
+<h3>5.3.1 首次使用</h3>
+<ol>
+  <li>打开首页，点击"登录"或"注册"</li>
+  <li>完成账号创建/登录</li>
+  <li>点击云朵进入创作页面</li>
+</ol>
+
+<h3>5.3.2 创建梦境</h3>
+<ol>
+  <li>选择梦境类型（美梦/噩梦/奇幻等）</li>
+  <li>选择艺术风格（写实/水彩/油画/动漫）</li>
+  <li>输入梦境描述或点击推荐标签</li>
+  <li>点击"生成图片"</li>
+  <li>选择喜欢的图片添加到梦境集</li>
+  <li>添加2张以上可生成视频</li>
+  <li>点击"完成创作"保存</li>
+</ol>
+
+<div class="page-num">- 5 -</div>
+</div>
+
+<!-- ==================== 第六章 项目总结 ==================== -->
+<div class="page-break">
+<h1>第六章 项目总结</h1>
+
+<div class="instruction">
+【填写说明：作品制作开发过程中的一些感悟和后续升级等，如：项目协调、任务分解、克服的困难、水平提升、升级演进、商业推广等诸方面。建议部分篇幅不超过A4纸1页。】
+</div>
+
+<h2>6.1 项目协调</h2>
+<p>本项目采用前后端分离架构，前端使用Next.js构建，后端借助云服务实现认证和数据管理。团队成员分工明确：一人负责前端界面和交互，一人负责AI服务集成和API开发。</p>
+
+<h2>6.2 克服的困难</h2>
+<ul>
+  <li><strong>成本控制</strong>：通过使用本地SD替代云端GPU，节省了大量生成成本。</li>
+  <li><strong>网络穿透</strong>：使用cpolar解决内网穿透问题，使本地SD可被公网访问。</li>
+  <li><strong>第一人称视角</strong>：通过提示词工程优化，确保生成图像的主观沉浸感。</li>
+</ul>
+
+<h2>6.3 水平提升</h2>
+<ul>
+  <li>掌握了Next.js全栈开发能力</li>
+  <li>深入学习了AI大模型的提示词工程</li>
+  <li>积累了Stable Diffusion自定义模型的经验</li>
+  <li>提升了响应式UI设计和用户体验优化能力</li>
+</ul>
+
+<h2>6.4 升级演进</h2>
+<ul>
+  <li>接入更多AI模型，支持更多艺术风格</li>
+  <li>增加梦境分享社区功能</li>
+  <li>引入更专业的心理分析算法</li>
+  <li>开发小程序版本，降低使用门槛</li>
+</ul>
+
+<h2>6.5 商业推广</h2>
+<p>可考虑与心理咨询机构合作，为用户提供专业的梦境解读服务。也可探索会员制，解锁更多高级功能和专属风格模型。</p>
+
+<div class="page-num">- 6 -</div>
+
+<!-- ==================== 参考文献 ==================== -->
+<div class="page-break">
+<h1>参考文献</h1>
+
+<div class="instruction">
+【请按照标准参考文件格式填写】
+</div>
+
+<p>[1] Next.js Documentation. Vercel, 2024. https://nextjs.org/docs</p>
+<p>[2] Stable Diffusion WebUI. Automatic1111, 2024. https://github.com/AUTOMATIC1111/stable-diffusion-webui</p>
+<p>[3] Tailwind CSS Documentation. Tailwind Labs, 2024. https://tailwindcss.com/docs</p>
+<p>[4] cpolar User Guide. cpoalr, 2024. https://www.cpolar.com/docs</p>
+<p>[5] 豆包大模型 API文档. 字节跳动, 2024.</p>
+
+<div class="page-num">- 7 -</div>
+</div>
+
+</body>
+</html>
