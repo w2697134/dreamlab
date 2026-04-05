@@ -195,13 +195,16 @@ export default function ProfilePage() {
       
       setShowRegisterModal(false);
       setRegisterForm({username: '', password: '', confirmPassword: ''});
-      showToast('注册成功 ✨', 'success');
       
-      // 显示加载遮罩，避免页面闪烁
-      setIsNavigatingHome(true);
+      // 显示成功提示，延迟跳转让用户看到提示
+      showToast('🎉 注册成功！正在跳转...', 'success');
       
-      // 延迟刷新页面以确保状态同步
-      setTimeout(() => window.location.reload(), 500);
+      // 延迟显示加载遮罩和跳转，让用户看到成功提示
+      setTimeout(() => {
+        setIsNavigatingHome(true);
+        // 再延迟一下刷新页面
+        setTimeout(() => window.location.reload(), 300);
+      }, 1000);
     } catch (error) {
       showToast('注册出错，请重试', 'error');
     } finally {
