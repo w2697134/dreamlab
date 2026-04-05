@@ -409,6 +409,31 @@ export default function DreamPage() {
   // 进度保护：使用 ref 追踪当前最大进度，防止进度条回退
   const maxProgressRef = useRef(0);
   
+  // 页面加载时从 Service Worker 恢复进度（刷新后）
+  useEffect(() => {
+    // 从 Service Worker 获取状态
+    if (navigator.serviceWorker?.controller) {
+      navigator.serviceWorker.controller.postMessage({ type: 'GET_STATUS' });
+    }
+    
+    // 监听 Service Worker 消息
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data.type === 'STATUS' || event.data.type === 'PROGRESS_UPDATE') {
+        const { isGenerating, progress, message } = event.data.data;
+        console.log('[SW] 收到进度:', isGenerating, progress);
+        if (isGenerating && progress > 0) {
+          setIsGenerating(true);
+          setGenerateProgress(progress);
+          setGenerateMessage(message || '正在生成...');
+          setDisplayProgress(progress);
+        }
+      }
+    };
+    
+    navigator.serviceWorker?.addEventListener('message', handleMessage);
+    return () => navigator.serviceWorker?.removeEventListener('message', handleMessage);
+  }, []);
+  
   // 页面加载时从全局状态恢复进度（切换页面时）
   useEffect(() => {
     console.log('[页面恢复] 检查全局状态:', state.isGenerating, state.progress, state.generatedImages?.length);
@@ -514,6 +539,16 @@ export default function DreamPage() {
     
     // 更新全局状态
     updateProgress(progress, generateMessage, generateStage);
+    
+    // 发送进度给 Service Worker（支持刷新后恢复）
+    if (navigator.serviceWorker?.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: 'UPDATE_PROGRESS',
+        progress,
+        message: generateMessage,
+        isGenerating: true
+      });
+    }
     
     // 只在进度大于0时启动动画，避免0%时显示白点
     if (!animationRef.current && progress > 0) {

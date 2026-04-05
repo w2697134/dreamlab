@@ -4,6 +4,7 @@ import { Providers } from '@/components/Providers';
 import MainLayout from '@/components/MainLayout';
 import PageTransition from '@/components/PageTransition';
 import GenerationManager from '@/components/GenerationManager';
+import ServiceWorkerRegister from '@/components/ServiceWorkerRegister';
 import '@/lib/init-cleanup'; // 启动定时清理任务（每天清理一次草稿数据）
 import './globals.css';
 
@@ -55,6 +56,7 @@ export default function RootLayout({
           </MainLayout>
           <PageTransition />
           <GenerationManager />
+          <ServiceWorkerRegister />
         </Providers>
       </body>
     </html>
