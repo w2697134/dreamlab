@@ -107,7 +107,7 @@ async function generateBatch(
     steps: 30,
     width: 768,
     height: 512,
-    cfg_scale: 8,
+    cfg_scale: 9,
     sampler_index: 'DPM++ 2M Karras',
     batch_size: Math.min(batchSize, 2),
     n_iter: 1,
