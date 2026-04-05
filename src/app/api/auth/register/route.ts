@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createLocalToken } from '@/lib/local-token';
 import { hashPassword } from '@/lib/password';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { randomUUID } from 'crypto';
 
 // 用户注册
 export async function POST(request: NextRequest) {
@@ -48,8 +49,8 @@ export async function POST(request: NextRequest) {
     // 加密密码
     const { hash, salt } = hashPassword(password);
 
-    // 生成用户 ID
-    const userId = `user_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+    // 生成用户 ID (使用标准 UUID 格式)
+    const userId = randomUUID();
 
     // 创建用户
     const { error: insertError } = await client
