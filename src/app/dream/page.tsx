@@ -292,6 +292,7 @@ export default function DreamPage() {
   const { showToast } = useToast();
   const { 
     state: genState, 
+    state,
     startGeneration, 
     updateProgress, 
     addGeneratedImage, 
@@ -407,6 +408,105 @@ export default function DreamPage() {
   
   // 进度保护：使用 ref 追踪当前最大进度，防止进度条回退
   const maxProgressRef = useRef(0);
+  
+  // 页面加载时：检测是否是刷新，刷新则重置状态
+  useEffect(() => {
+    // 检测页面刷新（通过 navigation type）
+    const isReload = typeof window !== 'undefined' && 
+      (window.performance?.navigation?.type === 1 || 
+       window.performance?.getEntriesByType?.('navigation')?.[0]?.type === 'reload');
+    
+    if (isReload) {
+      console.log('[页面刷新] 彻底重置，停止生成');
+      // 刷新时彻底重置所有状态
+      clearGeneration(); // 清除全局生成状态
+      setIsGenerating(false);
+      setGenerateProgress(0);
+      setGeneratedImages([]);
+      setCurrentPrompt('');
+      setSelectedKeywords([]);
+      setUploadedImages([]);
+      // 中断后端生成
+      fetch('/api/interrupt-generation', { method: 'POST' }).catch(() => {});
+      showToast('页面已刷新，开始新梦境', 'info');
+      return;
+    }
+    
+    console.log('[页面恢复] 检查全局状态:', state.isGenerating, state.progress, state.generatedImages?.length);
+    
+    // 恢复进度（切换页面时）
+    if (state.isGenerating && state.progress > 0) {
+      console.log('[页面恢复] 从全局状态恢复进度:', state.progress);
+      setIsGenerating(true);
+      setGenerateProgress(state.progress);
+      setGenerateMessage(state.message || '正在生成...');
+      setGenerateStage(state.stage);
+      setDisplayProgress(state.progress);
+      setSimulatedProgress(state.progress);
+      targetProgressRef.current = state.progress;
+      maxProgressRef.current = state.progress;
+    }
+    
+    // 恢复生成的图片
+    if (state.generatedImages && state.generatedImages.length > 0) {
+      console.log('[页面恢复] 从全局状态恢复图片:', state.generatedImages.length);
+      const newImages = state.generatedImages.map((img: any, index: number) => ({
+        ...img,
+        selected: false,
+        sceneElements: [] as string[],
+        lightMood: 'balanced' as const,
+        perspective: 'eye-level' as const,
+        atmosphere: 'mysterious' as const,
+        interpretation: '',
+        isInterpreting: false,
+        polishedPrompt: img.prompt,
+        polishedPromptCN: img.prompt,
+        negativePrompt: [] as string[],
+      }));
+      setGeneratedImages(newImages);
+    }
+  }, []);
+  
+  // 监听全局状态变化，同步进度和图片（页面切换后保持更新）
+  useEffect(() => {
+    console.log('[全局状态监听]', state.isGenerating, state.progress, state.stage, state.generatedImages?.length);
+    
+    // 同步生成的图片
+    if (state.generatedImages && state.generatedImages.length > 0) {
+      const newImages = state.generatedImages.map((img: any, index: number) => ({
+        ...img,
+        selected: false,
+        sceneElements: [] as string[],
+        lightMood: 'balanced' as const,
+        perspective: 'eye-level' as const,
+        atmosphere: 'mysterious' as const,
+        interpretation: '',
+        isInterpreting: false,
+        polishedPrompt: img.prompt,
+        polishedPromptCN: img.prompt,
+        negativePrompt: [] as string[],
+      }));
+      setGeneratedImages(newImages);
+    }
+    
+    if (state.isGenerating) {
+      setGenerateProgress(state.progress);
+      setGenerateMessage(state.message);
+      setGenerateStage(state.stage);
+      setDisplayProgress(state.progress);
+      setSimulatedProgress(state.progress);
+      targetProgressRef.current = state.progress;
+      maxProgressRef.current = Math.max(maxProgressRef.current, state.progress);
+      
+      // 生成完成时关闭进度条（进度100或有图片生成完成）
+      if (state.progress >= 100 || state.generatedImages.length > 0) {
+        console.log('[全局状态] 生成完成，关闭进度条');
+        setTimeout(() => {
+          setIsGenerating(false);
+        }, 1000);
+      }
+    }
+  }, [state.progress, state.message, state.stage, state.isGenerating, state.generatedImages]);
   
   // 取消状态：用于 SSE 循环中检查是否已取消
   const isCancelledRef = useRef(false);

@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useRef, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useRef, useEffect, useCallback, ReactNode } from 'react';
 
 // ========== 类型定义 ==========
 export interface GeneratedImage {
@@ -30,6 +30,8 @@ interface GenerationContextType {
   finishGeneration: () => void;
   cancelGeneration: () => void;
   clearGeneration: () => void;
+  startBackgroundGeneration: (requestBody: unknown) => void;
+  generationRequest: unknown;
 }
 
 // ========== 默认状态 ==========
@@ -140,6 +142,13 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
     setState(initialState);
   };
 
+  // 启动后台生成（带请求参数）
+  const [generationRequest, setGenerationRequest] = useState<unknown>(null);
+  const startBackgroundGeneration = useCallback((requestBody: unknown) => {
+    setGenerationRequest(requestBody);
+    startGeneration();
+  }, [startGeneration]);
+
   return (
     <GenerationContext.Provider
       value={{
@@ -151,6 +160,8 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
         finishGeneration,
         cancelGeneration,
         clearGeneration,
+        startBackgroundGeneration,
+        generationRequest,
       }}
     >
       {children}

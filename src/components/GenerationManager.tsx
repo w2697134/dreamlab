@@ -20,7 +20,9 @@ export default function GenerationManager() {
     addGeneratedImage, 
     finishGeneration, 
     setError,
-    cancelGeneration 
+    cancelGeneration,
+    generationRequest,
+    clearGeneration
   } = useGeneration();
   const { showToast } = useToast();
   
@@ -149,6 +151,14 @@ export default function GenerationManager() {
     cancelGeneration();
     isRunningRef.current = false;
   }, [cancelGeneration]);
+  
+  // 监听 generationRequest 变化，自动启动生成
+  useEffect(() => {
+    if (generationRequest && !isRunningRef.current) {
+      console.log('[生成管理器] 检测到生成请求，启动后台生成');
+      startBackgroundGeneration(generationRequest);
+    }
+  }, [generationRequest, startBackgroundGeneration]);
   
   // 暴露到全局
   useEffect(() => {
