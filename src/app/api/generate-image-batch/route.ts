@@ -85,6 +85,14 @@ async function generateBatch(
 ): Promise<{ base64Images: string[]; time: number }> {
   const start = Date.now();
   
+  // 获取当前使用的模型名称
+  const modelName = artStyle === 'anime' ? 'Anything V5.0 (二次元)' : 
+                    artStyle === 'realistic' ? 'Realistic Vision V2.0 (写实)' : 
+                    artStyle === 'watercolor' ? 'Realistic Vision V2.0 (水彩)' : 
+                    artStyle === 'oil' ? 'Realistic Vision V2.0 (油画)' : 'Unknown';
+  
+  console.log(`[SD] ${sdUrl.split('/')[2]} | ${modelName} | ${batchSize}张`);
+  
   // 使用传入的反向提示词，或根据风格使用默认
   let negativePromptStr: string;
   if (negativePrompt && negativePrompt.length > 0) {
@@ -93,7 +101,7 @@ async function generateBatch(
     negativePromptStr = 'ugly, blurry, low quality, bad anatomy';
     
     if (artStyle === 'realistic') {
-      negativePromptStr += ', anime, manga, cartoon, 2d, illustration, big eyes, colorful hair, unrealistic proportions, doll, plastic, wax figure, mannequin, uncanny valley, fake, cg, 3d render, smooth skin, porcelain skin, oversaturated, oversharp, artificial, synthetic, doll-like, puppet, lifeless eyes, flat lighting';
+      negativePromptStr += ', anime, manga, cartoon, 2d, illustration, big eyes, colorful hair, unrealistic proportions, doll, plastic, wax figure, mannequin, uncanny valley, fake, cg, 3d render, smooth skin, porcelain skin, oversaturated, oversharp, artificial, synthetic, doll-like, puppet, lifeless eyes, flat lighting, anime style, manga style, cartoon style, chibi, kawaii, anime girl, anime boy, anime character, cel shading, toon, comic, japanese animation, anime aesthetic, anime eyes, anime face, anime hair, anime background, anime scene, visual novel, game cg, anime screenshot, fanart, doujin'
     }
   }
   
@@ -104,11 +112,11 @@ async function generateBatch(
   const requestBody: any = {
     prompt,
     negative_prompt: negativePromptStr,
-    steps: 30,
+    steps: 40,
     width: 768,
     height: 512,
-    cfg_scale: 9,
-    sampler_index: 'DPM++ 2M Karras',
+    cfg_scale: 7,
+    sampler_index: 'DPM++ 2M SDE Karras',
     batch_size: Math.min(batchSize, 2),
     n_iter: 1,
   };
@@ -122,7 +130,7 @@ async function generateBatch(
     
     // 写实风格时，添加额外的反向提示词避免动漫风格渗透
     if (artStyle === 'realistic') {
-      requestBody.negative_prompt += ', anime style, cartoon style, manga style, 2d illustration, big eyes, colorful hair, unrealistic proportions, doll-like features';
+      requestBody.negative_prompt += ', anime style, cartoon style, manga style, 2d illustration, big eyes, colorful hair, unrealistic proportions, doll-like features, chibi, kawaii, anime girl, anime boy, anime character, cel shading, toon, comic, japanese animation, anime aesthetic'
     }
   }
   
@@ -140,7 +148,10 @@ async function generateBatch(
     throw new Error('No images returned');
   }
   
-  return { base64Images: data.images, time: Date.now() - start };
+  const time = Date.now() - start;
+  console.log(`[SD] 完成: ${data.images.length}张, ${time}ms`);
+  
+  return { base64Images: data.images, time };
 }
 
 // ==================== 实例选择 ====================
@@ -273,7 +284,7 @@ export async function POST(request: NextRequest) {
         
         // 接收：润色后的提示词（只润色一次）、数量、风格
         const body = await request.json();
-        console.log('[生成API] 收到请求:', body);
+        console.log('[生成] 请求: ' + (body.polishedPrompt?.substring(0, 30) || '无') + '..., 风格=' + body.artStyle + ', 数量=' + body.count);
         
         const { polishedPrompt, count = 1, artStyle = 'anime', negativePrompt, uploadedImages, isImg2Img } = body;
         
@@ -281,7 +292,7 @@ export async function POST(request: NextRequest) {
         let initImage: string | undefined;
         if (isImg2Img && uploadedImages && uploadedImages.length > 0) {
           initImage = uploadedImages[0]; // 使用第一张上传的图片作为参考
-          console.log('[生成API] 使用 img2img 模式，参考图片长度:', initImage?.length || 0);
+          // img2img日志已精简
         }
         
         if (!polishedPrompt || typeof polishedPrompt !== 'string' || polishedPrompt.trim() === '') {

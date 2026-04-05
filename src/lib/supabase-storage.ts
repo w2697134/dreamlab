@@ -45,7 +45,7 @@ export async function uploadImage(base64Image: string, fileName: string): Promis
       .from(BUCKET_NAME)
       .getPublicUrl(fileName);
     
-    console.log('[Supabase Storage] 上传成功:', publicUrl);
+    console.log('[Storage] 上传: ' + publicUrl.split('/').pop()?.substring(0, 20) + '...');
     return publicUrl;
   } catch (error) {
     console.error('[Supabase Storage] 上传错误:', error);

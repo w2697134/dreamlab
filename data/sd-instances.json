@@ -5,7 +5,8 @@
     "url": "https://dreamlab0.cpolar.top",
     "fixedModelFile": "anything-v5.safetensors",
     "fixedModelName": "Anything V5.0",
-    "specialty": "anime",
+    "fixedModel": "anime",
+    "canSwitchModel": false,
     "isDefault": false,
     "isAvailable": true
   },
@@ -15,7 +16,8 @@
     "url": "http://textimage.cpolar.top",
     "fixedModelFile": "",
     "fixedModelName": "待配置",
-    "specialty": "realistic",
+    "fixedModel": "realistic",
+    "canSwitchModel": false,
     "isDefault": false,
     "isAvailable": true
   }

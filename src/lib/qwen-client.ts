@@ -50,10 +50,10 @@ function getFailoverConfig(): { failoverEnabled: boolean } {
   try {
     if (fs.existsSync(CONFIG_FILE)) {
       const config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
-      console.log('[LLM配置] 读取文件:', CONFIG_FILE, '配置:', config);
+      // LLM配置读取日志已精简
       return { failoverEnabled: config.failoverEnabled ?? false };
     }
-    console.log('[LLM配置] 配置文件不存在，使用环境变量:', process.env.LLM_FAILOVER_TO_KIMI === 'true');
+    // LLM配置不存在日志已精简
   } catch (error) {
     console.error('[LLM配置] 读取失败:', error);
   }
@@ -141,7 +141,7 @@ export async function invokeQwen(
 ): Promise<{ content: string; usage?: any; provider?: 'qwen' | 'kimi' }> {
   const { failoverEnabled } = getFailoverConfig();
   
-  console.log('[LLM] 调用模型, 故障转移:', failoverEnabled ? '开启' : '关闭');
+  console.log('[LLM] 调用: 千问' + (failoverEnabled ? '(故障转移开)' : ''));
   console.log('[LLM] 消息数:', messages.length);
 
   // 首先尝试千问

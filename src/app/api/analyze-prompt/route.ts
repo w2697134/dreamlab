@@ -142,7 +142,7 @@ function autoSelectModel(prompt: string): string {
  */
 export async function POST(request: NextRequest) {
   try {
-    const { userInput, uploadedImages, selectedKeywords, contextHistory } = await request.json();
+    const { userInput, uploadedImages, selectedKeywords, contextHistory, artStyle } = await request.json();
     
     const inputSummary = userInput?.trim() || '';
     const keywordSummary = selectedKeywords?.join('、') || '';
@@ -155,10 +155,10 @@ export async function POST(request: NextRequest) {
       // 取最近3条历史润色描述，用句号连接
       const recentContexts = historyContexts.slice(-3);
       contextualInput = `${recentContexts.join('。')}。${inputSummary}`;
-      console.log('[AI分析] 上下文输入:', contextualInput.substring(0, 200));
+      // 上下文输入日志已精简
     }
     
-    console.log('[AI分析] 当前输入:', inputSummary.substring(0, 100));
+    console.log('[AI] 输入:', inputSummary.substring(0, 50));
 
     const userContent = `## 用户梦境描述（含上下文）
 "${contextualInput || '（无文字描述）'}"
@@ -181,7 +181,7 @@ ${keywordSummary || '（无标签）'}
     });
 
     console.log(`[AI分析] 使用${provider}完成`);
-    console.log('[AI分析] AI原始返回:', aiResult.substring(0, 800));
+    // AI原始返回日志已精简
 
     const fallback = {
       analysis: { 
@@ -199,7 +199,7 @@ ${keywordSummary || '（无标签）'}
     };
     
     const analysisResult = parseAIResult(aiResult, fallback);
-    console.log('[AI分析] 解析结果:', JSON.stringify(analysisResult, null, 2));
+    console.log('[AI] 解析: 人物=' + (analysisResult.analysis?.subject?.substring(0, 20) || '无') + ', 模型=' + analysisResult.model);
 
     // 确保有中文描述
     if (!analysisResult.positivePromptCN || analysisResult.positivePromptCN === inputSummary) {
@@ -216,10 +216,18 @@ ${keywordSummary || '（无标签）'}
       negativePrompt = [...negativePrompt, ...fallback.negativePrompt.slice(0, 5 - negativePrompt.length)];
     }
 
-    // 选择模型
-    let selectedModel = analysisResult.model || 'default';
-    if (!selectedModel || selectedModel === 'default') {
-      selectedModel = autoSelectModel(analysisResult.positivePromptEN || '');
+    // 选择模型：优先使用用户选择的艺术风格
+    let selectedModel: string;
+    if (artStyle === 'anime') {
+      selectedModel = 'anime';
+    } else if (artStyle === 'realistic' || artStyle === 'watercolor' || artStyle === 'oil') {
+      selectedModel = 'realistic';
+    } else {
+      // 用户未指定或默认，使用 AI 判断
+      selectedModel = analysisResult.model || 'default';
+      if (!selectedModel || selectedModel === 'default') {
+        selectedModel = autoSelectModel(analysisResult.positivePromptEN || '');
+      }
     }
     
     const response = {
@@ -234,7 +242,7 @@ ${keywordSummary || '（无标签）'}
       provider
     };
     
-    console.log('[AI分析] 返回给前端:', JSON.stringify(response, null, 2));
+    // 返回前端日志已精简
     
     return new Response(JSON.stringify(response), {
       status: 200,

@@ -3,7 +3,7 @@ import { invokeQwen } from '@/lib/qwen-client';
 
 export async function POST(request: NextRequest) {
   try {
-    const { text, context } = await request.json();
+    const { text, context, artStyle } = await request.json();
     
     if (!text) {
       return NextResponse.json({ error: '缺少文本' }, { status: 400 });
@@ -117,18 +117,36 @@ export async function POST(request: NextRequest) {
 
 ═══════════════════════════════════════════════════════════════
 
+【风格差异化要求】
+
+【二次元风格（anime）】
+- 重点描述人物外貌、神态、服装（占3/4篇幅）
+- 环境氛围简洁（占1/4篇幅）
+- 人物:环境 词数比例 = 3:1
+- 用词梦幻、意象化，避免过于写实
+- 示例："银发少女闭目沉睡，长发如瀑，白色连衣裙飘逸，星光点缀发梢。背景是深蓝星空。"
+
+【写实风格（realistic）】
+- 详细描述人物特征、环境细节
+- 字数150字以上
+- 用词具体、画面完整
+
 【输出要求】
 
-1. 字数：150字以上（必须满足）
+1. 字数：80字左右
 2. 直接输出润色结果，不要任何前缀
 3. 每一次都要生成不同的版本
 4. 诗意与画面感并存
 5. AI绘图模型能根据描述想象出画面
-6. 出现人物/物体/动物/建筑时，必须详细描述其具体特征`;
+6. 二次元风格必须遵守人物:环境=3:1的比例`;
 
+    const styleHint = artStyle === 'realistic' || artStyle === 'watercolor' || artStyle === 'oil' 
+      ? '【写实风格】详细描述，150字以上，人物环境都具体'
+      : '【二次元风格】重点描述人物外貌神态（占3/4），环境简洁（占1/4），人物:环境=3:1，40-80字，梦幻意象化';
+    
     const userMessage = context 
-      ? `【梦境原文】\n${text}\n\n【梦境上下文】\n${context}\n\n请将这段梦境润色为富有画面感的诗意描述。`
-      : `【梦境原文】\n${text}\n\n请将这段梦境润色为富有画面感的诗意描述。`;
+      ? `【梦境原文】\n${text}\n\n【梦境上下文】\n${context}\n\n${styleHint}\n\n请将这段梦境润色为富有画面感的诗意描述。`
+      : `【梦境原文】\n${text}\n\n${styleHint}\n\n请将这段梦境润色为富有画面感的诗意描述。`;
 
     const messages = [
       { role: 'system' as const, content: systemPrompt },

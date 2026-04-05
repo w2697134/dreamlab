@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
       temperature: 0.9
     });
 
-    console.log('[关键词生成] 使用模型:', response.provider || 'unknown');
+    // 关键词生成日志已隐藏
 
     // 解析关键词
     const keywords = response.content

@@ -1153,6 +1153,7 @@ export default function DreamPage() {
             selectedKeywords,
             isImg2Img: isImg2ImgMode,
             contextHistory, // 【上下文关联】传递历史记录（userInputs中存储的是润色后的描述）
+            artStyle, // 【风格选择】传递用户选择的艺术风格
           }),
         });
         
@@ -1982,7 +1983,8 @@ export default function DreamPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           text: polishContent,
-          context: contextHistory?.lastPrompt || ''
+          context: contextHistory?.lastPrompt || '',
+          artStyle: artStyleRef.current === 'default' ? 'anime' : artStyleRef.current
         }),
       });
 
