@@ -26,8 +26,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const showToast = useCallback((message: string, type: ToastType = 'info') => {
-    // Toast 已禁用
-    console.log(`[Toast] ${type}: ${message}`);
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type }]);
+    
+    // 3秒后自动移除
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 3000);
   }, []);
 
   const removeToast = (id: number) => {

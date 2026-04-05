@@ -394,10 +394,10 @@ const [collections, setCollections] = useState<DreamCollection[]>([]);
           <div className="flex flex-col items-center justify-center py-20">
             <div className="text-6xl mb-6">🔐</div>
             <p className={`text-lg mb-2 ${mode === 'dark' ? 'text-white/80' : 'text-gray-700'}`}>
-              登录已过期
+              未登录
             </p>
             <p className={`text-sm mb-6 ${mode === 'dark' ? 'text-white/50' : 'text-gray-500'}`}>
-              请重新登录以查看您的梦境库
+              请登录以查看您的梦境库
             </p>
             <button
               onClick={() => router.push('/?login=true')}
@@ -407,7 +407,7 @@ const [collections, setCollections] = useState<DreamCollection[]>([]);
                   : 'bg-gradient-to-r from-sky-400 to-blue-400'
               }`}
             >
-              重新登录
+              登录
             </button>
           </div>
         ) : collections.length === 0 ? (

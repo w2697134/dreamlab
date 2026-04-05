@@ -917,7 +917,7 @@ export default function DreamGenerator({ onBack }: DreamGeneratorProps = {}) {
     setGenerateMessage('');
     setGenerateStage('');
     
-    // 清空生成的图片，防止"上一张顶下一张"
+    // 重置生成的图片，防止"上一张顶下一张"
     setGeneratedImages([]);
     
     // 重置取消状态
@@ -1033,7 +1033,7 @@ export default function DreamGenerator({ onBack }: DreamGeneratorProps = {}) {
                 localStorage.setItem('dreamSessionId', currentSessionId);
                 localStorage.setItem('dreamSessionImageCount', '1');
               }
-              console.log(`[会话] 创建新梦境会话: ${currentSessionId}`);
+              console.log(`[会话] 创建重置会话: ${currentSessionId}`);
             }
           }
         } catch (sessionError) {
@@ -1401,7 +1401,7 @@ export default function DreamGenerator({ onBack }: DreamGeneratorProps = {}) {
           ));
         });
         
-        // 更新梦境会话历史
+        // 更重置会话历史
         if (currentSessionId && finalData!.results && finalData!.results.length > 0) {
           try {
             const token = localStorage.getItem('dreamToken');
@@ -1513,7 +1513,7 @@ export default function DreamGenerator({ onBack }: DreamGeneratorProps = {}) {
     // 添加到已选列表
     setSelectedImages([...selectedImages, ...newSelectedImages]);
     
-    // 清空生成列表和输入，准备继续创作
+    // 重置生成列表和输入，准备继续创作
     setGeneratedImages([]);
     setCurrentPrompt('');
     setSelectedKeywords([]);
@@ -1549,7 +1549,7 @@ export default function DreamGenerator({ onBack }: DreamGeneratorProps = {}) {
     setSelectedImages([...selectedImages, newSelected]);
     setGeneratedImages([]);
     setCurrentPrompt('');
-    setSelectedKeywords([]); // 清空已选关键词
+    setSelectedKeywords([]); // 重置已选关键词
   };
 
   const handleRegenerate = () => {
@@ -1605,7 +1605,7 @@ export default function DreamGenerator({ onBack }: DreamGeneratorProps = {}) {
       showToast('图片上传失败', 'error');
     } finally {
       setIsUploadingImage(false);
-      // 清空 input 以允许重复选择同一文件
+      // 重置 input 以允许重复选择同一文件
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -1673,7 +1673,7 @@ export default function DreamGenerator({ onBack }: DreamGeneratorProps = {}) {
     console.log('[关键词] 正在获取关键词:', keyword);
     setIsRefreshingKeywords(true);
     setShowRiverAnimation(true);
-    setDreamKeywords([]); // 清空原有关键词
+    setDreamKeywords([]); // 重置原有关键词
     try {
       const response = await fetch('/api/generate-keywords', {
         method: 'POST',
@@ -2317,7 +2317,7 @@ export default function DreamGenerator({ onBack }: DreamGeneratorProps = {}) {
               </Link>
               <button
                 onClick={() => {
-                  // 继续创作：清空选择状态，保留生成的内容
+                  // 继续创作：重置选择状态，保留生成的内容
                   setSelectedImages([]);
                 }}
                 className={`flex-1 py-2 text-center rounded-xl text-sm transition-colors ${
@@ -2538,46 +2538,29 @@ export default function DreamGenerator({ onBack }: DreamGeneratorProps = {}) {
           </div>
 
           {/* 保存按钮、恢复默认、自动保存在同一行 */}
-          <div className="flex items-center justify-between mt-2">
-            {/* 左侧：保存草稿 + 删除草稿 */}
-            <div className="flex items-center gap-2">
-              {/* 保存草稿按钮 */}
-              <button
-                onClick={handleManualSaveDraftWithReset}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  mode === 'dark'
-                    ? 'bg-gray-700/50 text-gray-300 hover:bg-gray-700 border border-gray-600/30'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'
-                }`}
-              >
-                💾 保存草稿
-              </button>
-              {/* 未保存提示 */}
-              {hasUnsavedChanges && (
-                <span className={`text-xs px-2 py-1 rounded-full ${
-                  mode === 'dark' 
-                    ? 'bg-yellow-500/20 text-yellow-400' 
-                    : 'bg-yellow-100 text-yellow-700'
-                }`}>
-                  未保存
-                </span>
-              )}
-              
-              {/* 删除草稿按钮 */}
+          <div className="flex items-center justify-end mt-2">
+            {/* 右侧：重置按钮 */}
+            <div className="flex flex-col gap-1 items-end">
               <button
                 onClick={() => setShowDeleteDraftConfirm(true)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                className={`px-4 py-2 rounded-lg text-xs font-medium transition-all ${
                   mode === 'dark'
-                    ? 'bg-gray-700/50 text-red-300 hover:bg-gray-700 border border-gray-600/30'
-                    : 'bg-gray-100 text-red-400 hover:bg-gray-200 border border-gray-200'
+                    ? 'bg-green-500/20 text-green-300 hover:bg-green-500/30'
+                    : 'bg-green-100 text-green-600 hover:bg-green-200'
                 }`}
+                title="重置当前梦境，释放内存，重新开始"
               >
-                🗑️ 删除草稿
+                重置
               </button>
+              
+              {/* 提示 */}
+              <div className={`text-[10px] ${mode === 'dark' ? 'text-white/30' : 'text-gray-400'}`}>
+                清除关联，开始新梦境
+              </div>
             </div>
             
-            {/* 右侧：自动保存草稿开关 */}
-            <div className="flex items-center gap-2">
+            {/* 右侧：自动保存草稿开关 - 暂时隐藏 */}
+            {/* <div className="flex items-center gap-2">
               <span className={`text-xs ${mode === 'dark' ? 'text-white/40' : 'text-gray-400'}`}>
                 自动保存草稿
               </span>
@@ -2593,7 +2576,7 @@ export default function DreamGenerator({ onBack }: DreamGeneratorProps = {}) {
                   autoSave ? 'left-6 bg-white' : 'left-1 bg-white'
                 }`} />
               </button>
-            </div>
+            </div> */}
           </div>
 
           {/* 生成图片和完成按钮 */}

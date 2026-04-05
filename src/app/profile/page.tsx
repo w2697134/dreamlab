@@ -127,6 +127,9 @@ export default function ProfilePage() {
       setLoginForm({username: '', password: ''});
       showToast('登录成功 ✨', 'success');
       
+      // 显示加载遮罩，避免页面闪烁
+      setIsNavigatingHome(true);
+      
       // 延迟刷新页面以确保状态同步
       setTimeout(() => window.location.reload(), 500);
     } catch (error) {
@@ -168,7 +171,17 @@ export default function ProfilePage() {
       const data = await response.json();
 
       if (!response.ok) {
-        showToast(data.error || '注册失败', 'error');
+        // 将技术错误转换为用户友好的提示
+        let errorMsg = data.error || '注册失败';
+        if (errorMsg.includes('duplicate') || errorMsg.includes('unique') || errorMsg.includes('已存在')) {
+          errorMsg = '该用户名已被注册，请更换';
+        } else if (errorMsg.includes('password') || errorMsg.includes('密码')) {
+          errorMsg = '两次输入的密码不一致，请检查';
+        } else {
+          // 其他错误（包括uuid格式问题）统一提示
+          errorMsg = '用户名格式不正确，请使用字母、数字或中文';
+        }
+        showToast(errorMsg, 'error');
         setIsRegistering(false);
         return;
       }
@@ -183,6 +196,9 @@ export default function ProfilePage() {
       setShowRegisterModal(false);
       setRegisterForm({username: '', password: '', confirmPassword: ''});
       showToast('注册成功 ✨', 'success');
+      
+      // 显示加载遮罩，避免页面闪烁
+      setIsNavigatingHome(true);
       
       // 延迟刷新页面以确保状态同步
       setTimeout(() => window.location.reload(), 500);
