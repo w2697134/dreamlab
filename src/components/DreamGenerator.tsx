@@ -1100,18 +1100,26 @@ export default function DreamGenerator({ onBack }: DreamGeneratorProps = {}) {
         { lightMood: 'night', perspective: 'far', atmosphere: 'mysterious', sceneElements: selectedSceneElements },
       ];
 
-      // 如果没有文字但有标签，使用标签生成
-      const basePrompt = !analyzedPrompt.trim() && selectedKeywords.length > 0
-        ? selectedKeywords.join('、')
-        : analyzedPrompt;
+      // 构建提示词：用户输入为主，关键词为辅
+      let basePrompt: string;
+      if (analyzedPrompt.trim()) {
+        // 有用户输入时，用户输入为主，关键词作为场景补充（放在后面，权重较低）
+        const keywordsToAdd = selectedKeywords.filter(k => !analyzedPrompt.includes(k));
+        if (keywordsToAdd.length > 0) {
+          // 关键词作为辅助描述，用"背景是/场景有"等弱化表达
+          basePrompt = `${analyzedPrompt}，背景带有${keywordsToAdd.join('、')}的氛围`;
+        } else {
+          basePrompt = analyzedPrompt;
+        }
+      } else if (selectedKeywords.length > 0) {
+        // 没有用户输入时，才用关键词生成
+        basePrompt = selectedKeywords.join('、');
+      } else {
+        basePrompt = '';
+      }
 
       const prompts = styleVariants.map(variant => {
-        // 如果有已选关键词且不在文字中，加入到提示词中
-        const keywordsToAdd = selectedKeywords.filter(k => !basePrompt.includes(k));
-        const basePromptWithKeywords = keywordsToAdd.length > 0 
-          ? `${basePrompt}，${keywordsToAdd.join('、')}`
-          : basePrompt;
-        return buildPromptWithStyle(basePromptWithKeywords, variant);
+        return buildPromptWithStyle(basePrompt, variant);
       });
 
       // ===== 步骤3：发送到生成API =====
