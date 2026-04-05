@@ -300,14 +300,14 @@ export async function POST(request: NextRequest) {
           throw new Error('缺少提示词');
         }
         
-        await sendProgress(controller, 'start', '开始生成...', 0);
+        await sendProgress(controller, 'start', '这次生成的图，会悄悄记住你写的文字哦', 0);
         
         // 【平滑过渡】从0%到10%的初始进度
         let initProgress = 0;
         const initInterval = setInterval(async () => {
           initProgress += 2;
           if (initProgress <= 10) {
-            await sendProgress(controller, 'start', '准备生成环境...', initProgress);
+            await sendProgress(controller, 'start', '这次生成的图，会悄悄记住你写的文字哦', initProgress);
           }
         }, 200);
         
@@ -321,13 +321,13 @@ export async function POST(request: NextRequest) {
         };
         
         const style = styleMapping[artStyle] || styleMapping['default'];
-        await sendProgress(controller, 'analyzing', `选择${style.name}风格...`, 12);
+        await sendProgress(controller, 'analyzing', '点一点上面的词，给下一张图一点灵感呀', 12);
         
         // 选择实例（只用一台，SD内部批量生成）
         const { instance } = await selectInstance(style.model);
         
         clearInterval(initInterval);
-        await sendProgress(controller, 'analyzing', '模型选择完成', 18);
+        await sendProgress(controller, 'analyzing', '点一点上面的词，给下一张图一点灵感呀', 18);
         
         // 【分批生成】每批最多2张，避免显存不足
         const batchSize = 2;
@@ -342,7 +342,7 @@ export async function POST(request: NextRequest) {
           const batchStartProgress = 20 + (batch / batches) * 60;
           const batchEndProgress = 20 + ((batch + 1) / batches) * 60;
           
-          await sendProgress(controller, 'generating', `生成第${batch + 1}/${batches}批 (${currentBatchSize}张)...`, batchStartProgress);
+          await sendProgress(controller, 'generating', '', batchStartProgress);
           
           // 【修复】每500ms更新2%进度，确保不卡住，直到SD生成完成
           let currentProgress = batchStartProgress;
@@ -350,7 +350,7 @@ export async function POST(request: NextRequest) {
             currentProgress += 2; // 每次增加2%
             // 限制在批次结束进度前5%，留一点给完成时更新
             if (currentProgress < batchEndProgress - 5) {
-              await sendProgress(controller, 'generating', `生成第${batch + 1}/${batches}批中...`, currentProgress);
+              await sendProgress(controller, 'generating', '', currentProgress);
             }
           }, 500); // 每500ms更新一次 = 每秒4%，但前端限制显示每秒2%~10%
           
@@ -379,7 +379,7 @@ export async function POST(request: NextRequest) {
             const fallbackStyleName = isAnime ? '写实' : '二次元';
             
             console.log(`[生成] ${currentStyleName}实例失败，尝试${fallbackStyleName}实例...`);
-            await sendProgress(controller, 'generating', `${currentStyleName}实例繁忙，尝试${fallbackStyleName}风格...`, currentProgress);
+            await sendProgress(controller, 'generating', '', currentProgress);
             
             try {
               // 选择另一个模型类型的实例（跳过缓存，获取最新状态）
@@ -411,10 +411,10 @@ export async function POST(request: NextRequest) {
           // 【平滑过渡】从当前进度到批次结束进度
           const currentBatchProgress = Math.min(currentProgress, batchEndProgress - 5);
           for (let p = Math.floor(currentBatchProgress); p <= Math.floor(batchEndProgress); p += 3) {
-            await sendProgress(controller, 'generating', `第${batch + 1}批完成中...`, p);
+            await sendProgress(controller, 'generating', '', p);
             await new Promise(r => setTimeout(r, 100));
           }
-          await sendProgress(controller, 'generating', `第${batch + 1}批完成`, batchEndProgress);
+          await sendProgress(controller, 'generating', '', batchEndProgress);
           allImages.push(...base64Images);
           console.log(`[生成] 第${batch + 1}批完成，${currentBatchSize}张，耗时${time}ms`);
         }
@@ -422,11 +422,11 @@ export async function POST(request: NextRequest) {
         // 【平滑过渡】从最后批次进度到80%
         const lastBatchEndProgress = 20 + (batches / batches) * 60;
         for (let p = Math.floor(lastBatchEndProgress); p <= 80; p += 4) {
-          await sendProgress(controller, 'saving', '准备保存...', p);
+          await sendProgress(controller, 'saving', '', p);
           await new Promise(r => setTimeout(r, 80));
         }
         
-        await sendProgress(controller, 'saving', '保存图片...', 80);
+        await sendProgress(controller, 'saving', '', 80);
         
         // 保存所有图片
         const savedImages = [];
@@ -435,16 +435,16 @@ export async function POST(request: NextRequest) {
           savedImages.push({ imageUrl: url, index: i });
           // 每保存一张更新进度
           const saveProgress = 80 + ((i + 1) / allImages.length) * 15;
-          await sendProgress(controller, 'saving', `保存第${i + 1}/${allImages.length}张...`, saveProgress);
+          await sendProgress(controller, 'saving', '', saveProgress);
         }
         
         // 【平滑过渡】到100%
         for (let p = 95; p < 100; p += 2) {
-          await sendProgress(controller, 'complete', '即将完成...', p);
+          await sendProgress(controller, 'complete', '', p);
           await new Promise(r => setTimeout(r, 50));
         }
         
-        await sendProgress(controller, 'complete', '完成！', 100, {
+        await sendProgress(controller, 'complete', '如果梦做完了，点完成把它藏进回忆叭', 100, {
           success: true,
           results: savedImages,
           count: savedImages.length,

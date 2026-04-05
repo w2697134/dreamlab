@@ -268,12 +268,12 @@ export function ProgressBarV3({ progress, message, onCancel }: ProgressBarProps)
               <div className="w-14 h-14 rounded-full bg-gradient-to-br from-indigo-400 via-purple-400 to-pink-400 flex items-center justify-center shadow-lg shadow-purple-500/30">
                 <span className="text-2xl animate-spin-slow">✨</span>
               </div>
-              <div className="absolute inset-0 rounded-full border-2 border-white/30 animate-ping" />
+              <div className="absolute inset-0 rounded-full border-2 border-white/30" />
             </div>
             
             <div>
-              <h3 className={`text-xl font-semibold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent ${
-                mode === 'dark' ? '' : 'drop-shadow-sm'
+              <h3 className={`text-xl font-semibold ${
+                mode === 'dark' ? 'text-purple-300' : 'text-purple-600'
               }`}>
                 梦境生成中
               </h3>
@@ -423,7 +423,7 @@ export function ProgressBarPreview() {
           <h3 className="text-lg font-semibold mb-3 text-pink-600">版本3：梦幻风格</h3>
           <ProgressBarV3 
             progress={progress} 
-            message="正在编织梦境..." 
+            message="这次生成的图，会悄悄记住你写的文字哦" 
             onCancel={() => console.log('Cancel')}
           />
         </div>

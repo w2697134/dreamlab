@@ -1068,7 +1068,7 @@ export default function DreamPage() {
     maxProgressRef.current = 0;
     setIsModelSwitching(false);
     isModelSwitchingRef.current = false;
-    setGenerateMessage('准备中...');
+    setGenerateMessage('这次生成的图，会悄悄记住你写的文字哦');
     setGenerateStage('start');
     
     // 【严格跟随后端】等待后端 SSE 推送真实进度，不前端模拟
@@ -1080,7 +1080,7 @@ export default function DreamPage() {
     let timeoutRef: ReturnType<typeof setTimeout>;
     timeoutRef = setTimeout(() => {
       if (isGenerating) {
-        setGenerateMessage('生成中...（如网络较慢请耐心等待）');
+        setGenerateMessage('要重新开始吗？重置会切断联系哦');
       }
     }, 60000);
 
@@ -1139,7 +1139,7 @@ export default function DreamPage() {
       
       // 始终执行AI分析，获取润色后的提示词和反向提示词
       // 默认风格时，等待AI分析完成，使用分析结果
-      setGenerateMessage('AI正在分析梦境...');
+      setGenerateMessage('点一点上面的词，给下一张图一点灵感呀');
       setGenerateStage('analyzing');
       setGenerateProgress(10);
       
@@ -1203,7 +1203,7 @@ export default function DreamPage() {
       console.log('[生成] 最终提示词:', polishedPrompt);
 
       // ===== 步骤3：发送到生成API =====
-      setGenerateMessage('正在连接服务...');
+      setGenerateMessage('传张照片叭，梦会在上面继续生长呢');
       setGenerateStage('preparing');
       setGenerateProgress(15);
       
@@ -1340,13 +1340,13 @@ export default function DreamPage() {
                 
                 // 【新设计】完成时显示100%，延迟后淡出
                 setSafeProgress(100);
-                setGenerateMessage('生成完成！');
+                setGenerateMessage('如果梦做完了，点完成把它藏进回忆叭');
                 setGenerateStage('complete');
                 const completedResults = event.results; // 保存到局部变量
                 const returnedPolishedPrompt = event.polishedPrompt || lastPolishedPrompt; // 获取后端返回的润色提示词
                 finalData = { success: true, results: completedResults };
                 
-                // 延迟关闭进度条，让用户看到100%完成状态
+                // 延迟关闭进度条，让用户看到100%完成状态（缩短到1秒）
                 setTimeout(() => {
                   setIsGenerating(false);
                   setIsCancelling(false);
@@ -1385,7 +1385,7 @@ export default function DreamPage() {
                     // 标记全局生成为完成
                     finishGeneration();
                   }, 100);
-                }, 2000);
+                }, 1000);
               } else if (event.stage === 'generated') {
                 // 单张完成，直接使用后端返回的进度
                 if (typeof event.progress === 'number') {
@@ -2820,7 +2820,7 @@ export default function DreamPage() {
             <div className="flex flex-col gap-1 items-end">
               <button
                 onClick={() => setShowDeleteDraftConfirm(true)}
-                className={`px-4 py-2 rounded-lg text-xs font-medium transition-all ${
+                className={`w-full px-4 py-2 rounded-lg text-xs font-medium transition-all ${
                   mode === 'dark'
                     ? 'bg-green-500/20 text-green-300 hover:bg-green-500/30'
                     : 'bg-green-100 text-green-600 hover:bg-green-200'
@@ -2875,7 +2875,7 @@ export default function DreamPage() {
             <DreamProgressBar
               progress={displayProgress}
               simulatedProgress={simulatedProgress}
-              message={generateMessage || '正在编织梦境...'}
+              message={generateMessage || '这次生成的图，会悄悄记住你写的文字哦'}
               stage={generateStage}
               showCancel={true}
               onCancel={handleCancelGenerate}

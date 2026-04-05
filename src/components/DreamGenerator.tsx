@@ -973,7 +973,7 @@ export default function DreamGenerator({ onBack }: DreamGeneratorProps = {}) {
     maxProgressRef.current = 0; // 重置最大进度
     setIsModelSwitching(false); // 重置模型切换状态
     isModelSwitchingRef.current = false; // 重置 ref
-    setGenerateMessage('准备中...');
+    setGenerateMessage('这次生成的图，会悄悄记住你写的文字哦');
     setGenerateStage('start');
     
     // 0.8秒后跳到5%，让用户看到进度条启动
@@ -992,7 +992,7 @@ export default function DreamGenerator({ onBack }: DreamGeneratorProps = {}) {
     let timeoutRef: ReturnType<typeof setTimeout>;
     timeoutRef = setTimeout(() => {
       if (isGenerating) {
-        setGenerateMessage('生成中...（如网络较慢请耐心等待）');
+        setGenerateMessage('要重新开始吗？重置会切断联系哦');
       }
     }, 60000);
 
@@ -1052,7 +1052,7 @@ export default function DreamGenerator({ onBack }: DreamGeneratorProps = {}) {
       let suggestedModel = artStyle === 'default' ? null : artStyle;
       
       if (artStyle === 'default') {
-        setGenerateMessage('正在分析梦境...');
+        setGenerateMessage('点一点上面的词，给下一张图一点灵感呀');
         setGenerateStage('analyzing');
         setGenerateProgress(5); // 初始进度，分析阶段由后端SSE控制
         
@@ -1123,7 +1123,7 @@ export default function DreamGenerator({ onBack }: DreamGeneratorProps = {}) {
       });
 
       // ===== 步骤3：发送到生成API =====
-      setGenerateMessage('正在连接服务...');
+      setGenerateMessage('传张照片叭，梦会在上面继续生长呢');
       setGenerateStage('preparing');
       setGenerateProgress(15); // 初始进度，准备阶段由后端SSE控制
       
@@ -2625,7 +2625,7 @@ export default function DreamGenerator({ onBack }: DreamGeneratorProps = {}) {
             <DreamProgressBar
               progress={displayProgress}
               simulatedProgress={simulatedProgress}
-              message={generateMessage || '正在编织梦境...'}
+              message={generateMessage || '这次生成的图，会悄悄记住你写的文字哦'}
               stage={generateStage}
               showCancel={true}
               onCancel={handleCancelGenerate}
