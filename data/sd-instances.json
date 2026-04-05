@@ -7,7 +7,7 @@
     "fixedModelName": "Anything V5.0",
     "specialty": "anime",
     "isDefault": false,
-    "isAvailable": false
+    "isAvailable": true
   },
   {
     "id": "custom-1775357011260",
@@ -17,6 +17,6 @@
     "fixedModelName": "待配置",
     "specialty": "realistic",
     "isDefault": false,
-    "isAvailable": false
+    "isAvailable": true
   }
 ]
