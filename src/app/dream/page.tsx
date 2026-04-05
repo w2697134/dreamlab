@@ -409,29 +409,8 @@ export default function DreamPage() {
   // 进度保护：使用 ref 追踪当前最大进度，防止进度条回退
   const maxProgressRef = useRef(0);
   
-  // 页面加载时：检测是否是刷新，刷新则重置状态
+  // 页面加载时从全局状态恢复进度（切换页面时）
   useEffect(() => {
-    // 检测页面刷新（通过 navigation type）
-    const isReload = typeof window !== 'undefined' && 
-      (window.performance?.navigation?.type === 1 || 
-       window.performance?.getEntriesByType?.('navigation')?.[0]?.type === 'reload');
-    
-    if (isReload) {
-      console.log('[页面刷新] 彻底重置，停止生成');
-      // 刷新时彻底重置所有状态
-      clearGeneration(); // 清除全局生成状态
-      setIsGenerating(false);
-      setGenerateProgress(0);
-      setGeneratedImages([]);
-      setCurrentPrompt('');
-      setSelectedKeywords([]);
-      setUploadedImages([]);
-      // 中断后端生成
-      fetch('/api/interrupt-generation', { method: 'POST' }).catch(() => {});
-      showToast('页面已刷新，开始新梦境', 'info');
-      return;
-    }
-    
     console.log('[页面恢复] 检查全局状态:', state.isGenerating, state.progress, state.generatedImages?.length);
     
     // 恢复进度（切换页面时）
