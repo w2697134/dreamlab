@@ -8,5 +8,15 @@
     "specialty": "anime",
     "isDefault": false,
     "isAvailable": false
+  },
+  {
+    "id": "custom-1775357011260",
+    "name": "写实实例",
+    "url": "http://textimage.cpolar.top",
+    "fixedModelFile": "",
+    "fixedModelName": "待配置",
+    "specialty": "realistic",
+    "isDefault": false,
+    "isAvailable": false
   }
 ]
