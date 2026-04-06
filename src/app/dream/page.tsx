@@ -3066,10 +3066,10 @@ export default function DreamPage() {
                     }`}
                     onClick={() => handleSelectImage(img)}
                   >
-                    {/* 加载占位动画 */}
-                    <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-sky-500/20 via-indigo-500/20 to-pink-500/20" />
-                    {/* 加载中心百分比 */}
-                    <div className="absolute inset-0 flex items-center justify-center">
+                    {/* 加载占位动画 - 图片加载后隐藏 */}
+                    <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-sky-500/20 via-indigo-500/20 to-pink-500/20 loading-placeholder" />
+                    {/* 加载中心百分比 - 图片加载后隐藏 */}
+                    <div className="absolute inset-0 flex items-center justify-center loading-text">
                       <div className={`text-center ${mode === 'dark' ? 'text-white' : 'text-gray-700'}`}>
                         <div className="text-4xl font-bold bg-gradient-to-r from-sky-400 via-pink-400 to-indigo-400 bg-clip-text text-transparent animate-pulse">
                           100%
@@ -3083,14 +3083,12 @@ export default function DreamPage() {
                     <img
                       src={img.imageUrl}
                       alt={`选项 ${index + 1}`}
-                      className="w-full h-full object-cover transition-transform group-hover:scale-105 pointer-events-none opacity-100"
+                      className="w-full h-full object-cover transition-transform group-hover:scale-105 pointer-events-none opacity-100 relative z-10"
                       onLoad={(e) => {
                         // 图片加载完成，隐藏占位动画
                         const container = e.currentTarget.parentElement;
-                        const placeholder = container?.querySelector('.animate-pulse');
-                        const percentText = container?.querySelector('.text-4xl')?.parentElement?.parentElement;
-                        if (placeholder) placeholder.classList.add('hidden');
-                        if (percentText) percentText.classList.add('hidden');
+                        container?.querySelector('.loading-placeholder')?.classList.add('hidden');
+                        container?.querySelector('.loading-text')?.classList.add('hidden');
                       }}
                       onError={(e) => {
                         console.error('图片加载失败:', img.imageUrl?.substring(0, 100));
