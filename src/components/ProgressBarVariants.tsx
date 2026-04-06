@@ -32,7 +32,7 @@ export function ProgressBarV1({ progress, message, onCancel }: ProgressBarProps)
           </div>
           <div>
             <h3 className={`font-semibold ${mode === 'dark' ? 'text-white' : 'text-gray-800'}`}>
-              正在生成梦境
+              梦境正在编织中
             </h3>
             <p className={`text-sm ${mode === 'dark' ? 'text-purple-300' : 'text-purple-600'}`}>
               {message}
@@ -405,7 +405,7 @@ export function ProgressBarPreview() {
           <h3 className="text-lg font-semibold mb-3 text-purple-600">版本1：简约现代</h3>
           <ProgressBarV1 
             progress={progress} 
-            message="正在生成梦境图片..." 
+            message="AI正在描绘你的梦境画面..." 
             onCancel={() => console.log('Cancel')}
           />
         </div>

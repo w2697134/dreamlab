@@ -308,7 +308,7 @@ export default function DreamProgressBar({
   const glowIntensity = 20 + glowPulse * 15;
 
   // 默认消息
-  const displayMessage = message || '这次生成的图，会悄悄记住你写的文字哦';
+  const displayMessage = message || '梦境正在编织中...';
   const statusText = isComplete ? '梦境已编织完成！' : '梦境编织中...';
 
   return (

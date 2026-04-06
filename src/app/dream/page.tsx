@@ -424,7 +424,7 @@ export default function DreamPage() {
         if (isGenerating && progress > 0) {
           setIsGenerating(true);
           setGenerateProgress(progress);
-          setGenerateMessage(message || '正在生成...');
+          setGenerateMessage(message || '梦境正在编织中...');
           setDisplayProgress(progress);
         }
       }
@@ -443,7 +443,7 @@ export default function DreamPage() {
       console.log('[页面恢复] 从全局状态恢复进度:', state.progress);
       setIsGenerating(true);
       setGenerateProgress(state.progress);
-      setGenerateMessage(state.message || '正在生成...');
+      setGenerateMessage(state.message || '梦境正在编织中...');
       setGenerateStage(state.stage);
       setDisplayProgress(state.progress);
       setSimulatedProgress(state.progress);
@@ -1375,7 +1375,7 @@ export default function DreamPage() {
       }
 
       setGenerateStage('generating');
-      setGenerateMessage('正在生成图片...');
+      setGenerateMessage('AI正在描绘你的梦境画面...');
       
       // 重置取消标记
       isCancelledRef.current = false;

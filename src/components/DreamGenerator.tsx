@@ -1183,7 +1183,7 @@ export default function DreamGenerator({ onBack }: DreamGeneratorProps = {}) {
       }
 
       setGenerateStage('generating');
-      setGenerateMessage('正在生成图片...');
+      setGenerateMessage('AI正在描绘你的梦境画面...');
       
       // 重置取消标记
       isCancelledRef.current = false;

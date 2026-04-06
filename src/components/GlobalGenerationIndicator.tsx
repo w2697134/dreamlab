@@ -64,7 +64,7 @@ export default function GlobalGenerationIndicator() {
             <span className={`text-sm font-medium ${
               mode === 'dark' ? 'text-white' : 'text-gray-800'
             }`}>
-              {state.isGenerating ? '正在生成梦境' : '梦境生成完成'}
+              {state.isGenerating ? '梦境正在编织中' : '梦境已编织完成'}
             </span>
             <span className={`text-xs ${
               mode === 'dark' ? 'text-white/60' : 'text-gray-500'
