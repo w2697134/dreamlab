@@ -13,7 +13,7 @@ interface SDInstance {
   url: string;
   vram: number;
   canSwitchModel: boolean;
-  fixedModel?: 'anime' | 'realistic';
+  specialty?: 'anime' | 'realistic';
 }
 
 // ==================== 工具 ====================
@@ -34,7 +34,12 @@ async function sendProgress(
     const event = { stage, message, progress, timestamp: Date.now(), ...data };
     controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`));
     await new Promise(resolve => setImmediate(resolve));
-  } catch {}
+  } catch (e) {
+    // 静默忽略，但只在开发环境记录日志
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[sendProgress] 发送进度失败:', e);
+    }
+  }
 }
 
 async function checkSD(url: string): Promise<boolean> {
@@ -180,8 +185,8 @@ async function getOnlineInstances(): Promise<SDInstance[]> {
         name: inst.name,
         url: inst.url,
         vram: 24,
-        canSwitchModel: !inst.fixedModel, // 没有 fixedModel 的实例可以切换模型
-        fixedModel: inst.fixedModel as 'anime' | 'realistic' | undefined,
+        canSwitchModel: !inst.specialty, // 没有 specialty 的实例可以切换模型
+        specialty: inst.specialty as 'anime' | 'realistic' | undefined,
       });
     }
   }
@@ -226,7 +231,7 @@ async function selectInstance(
   
   // 【优先】找固定模型匹配的实例（专用实例优先于可切换实例）
   const fixedModelInstances = onlineInstances.filter(
-    i => i.fixedModel === targetModel && !i.canSwitchModel
+    i => i.specialty === targetModel && !i.canSwitchModel
   );
   
   if (fixedModelInstances.length > 0) {
@@ -260,7 +265,7 @@ async function selectInstance(
     
     // 动态更新实例名称
     mainInstance.name = `${modelName}-24G`;
-    mainInstance.fixedModel = targetModel;
+    mainInstance.specialty = targetModel;
     return { instance: mainInstance, needSwitch };
   }
   
@@ -372,6 +377,9 @@ export async function POST(request: NextRequest) {
             base64Images = result.base64Images;
             time = result.time;
           } catch (error) {
+            // 立即清理进度定时器，避免内存泄漏
+            clearInterval(progressInterval);
+            
             // 故障转移：主模型失败→备用模型（保留原风格提示词后缀）
             const isAnime = style.model === 'anime';
             const fallbackModel = isAnime ? 'realistic' : 'anime';

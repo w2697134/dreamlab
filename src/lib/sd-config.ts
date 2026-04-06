@@ -296,7 +296,10 @@ export async function selectSDInstanceByStyle(artStyle: string): Promise<SDInsta
   }
   
   // 最后的兜底：返回第一个配置实例（即使可能离线）
-  console.warn(`[路由] ⚠️ 没有在线 SD 实例！使用配置中的第一个实例`);
+  if (sdInstances.length === 0) {
+    throw new Error('没有配置任何 SD 实例');
+  }
+  console.warn(`[路由] ⚠️ 没有在线 SD 实例！使用配置中的第一个实例: ${sdInstances[0].name}`);
   return sdInstances[0];
 }
 

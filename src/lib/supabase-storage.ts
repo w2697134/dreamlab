@@ -5,7 +5,12 @@ import { supabaseAdmin } from './supabase-admin';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.COZE_SUPABASE_URL || '';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.COZE_SUPABASE_ANON_KEY || '';
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+// 检查环境变量
+if (!supabaseUrl || !supabaseKey) {
+  console.error('[Supabase Storage] 缺少必要的环境变量: NEXT_PUBLIC_SUPABASE_URL/COZE_SUPABASE_URL 或 NEXT_PUBLIC_SUPABASE_ANON_KEY/COZE_SUPABASE_ANON_KEY');
+}
+
+const supabase = createClient(supabaseUrl || 'http://placeholder', supabaseKey || 'placeholder');
 
 // 使用 admin 客户端绕过 RLS
 const useAdmin = !!process.env.COZE_SUPABASE_SERVICE_ROLE_KEY;
@@ -108,7 +113,8 @@ export async function cleanupOldDraftImages(hoursAgo: number = 1): Promise<void>
       const filesToDelete: string[] = [];
       
       for (const file of files) {
-        const match = file.name.match(/(\d+)-/);
+        // 使用更精确的正则，从开头匹配时间戳（文件名格式: timestamp-random.png）
+        const match = file.name.match(/^(\d+)-/);
         if (match) {
           const fileTime = parseInt(match[1]);
           if (fileTime < cutoffTime) {
