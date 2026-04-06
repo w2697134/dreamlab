@@ -3083,11 +3083,17 @@ export default function DreamPage() {
                     <img
                       src={img.imageUrl}
                       alt={`选项 ${index + 1}`}
-                      className="w-full h-full object-cover transition-transform group-hover:scale-105 pointer-events-none"
+                      className="w-full h-full object-cover transition-transform group-hover:scale-105 pointer-events-none opacity-100"
                       onLoad={(e) => {
-                        e.currentTarget.classList.remove('opacity-0');
-                        e.currentTarget.classList.add('opacity-100');
-                        e.currentTarget.previousElementSibling?.classList.add('hidden');
+                        // 图片加载完成，隐藏占位动画
+                        const container = e.currentTarget.parentElement;
+                        const placeholder = container?.querySelector('.animate-pulse');
+                        const percentText = container?.querySelector('.text-4xl')?.parentElement?.parentElement;
+                        if (placeholder) placeholder.classList.add('hidden');
+                        if (percentText) percentText.classList.add('hidden');
+                      }}
+                      onError={(e) => {
+                        console.error('图片加载失败:', img.imageUrl?.substring(0, 100));
                       }}
                     />
                     {/* 悬停时的提示 */}
