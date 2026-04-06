@@ -2989,7 +2989,7 @@ export default function DreamPage() {
             <DreamProgressBar
               progress={displayProgress}
               simulatedProgress={simulatedProgress}
-              message={generateMessage || '这次生成的图，会悄悄记住你写的文字哦'}
+              message={generateMessage || '点击关键词可调整画面风格'}
               stage={generateStage}
               showCancel={true}
               onCancel={handleCancelGenerate}

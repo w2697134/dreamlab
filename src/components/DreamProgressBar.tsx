@@ -14,10 +14,22 @@ interface DreamProgressBarProps {
   isCancelling?: boolean;   // 是否正在取消中
 }
 
+// 轮播提示文案 - 介绍小梦的功能
+const TIPS = [
+  '小梦会记住你写下的每个梦境',
+  '点击关键词可切换不同画面风格',
+  '上传图片让小梦学习你的喜好',
+  '写实、二次元、水彩、油画风格随心切换',
+  '要结束梦境时，记得点击完成保存到梦境库哦~',
+  '小梦支持图生图，基于参考图创作',
+  '心理评估帮你了解梦境背后的情绪',
+  '梦境集可将多个梦境串联成故事',
+] as const;
+
 export default function DreamProgressBar({
   progress,
   simulatedProgress,
-  message = '这次生成的图，会悄悄记住你写的文字哦',
+  message = '点击关键词可调整画面风格',
   stage = '',
   className = '',
   showCancel = true,
@@ -72,6 +84,11 @@ export default function DreamProgressBar({
   
   const particleIdRef = useRef(0);
   const textIdRef = useRef(0);
+  
+  // 轮播提示状态
+  const [tipIndex, setTipIndex] = useState(0);
+  const [tipOpacity, setTipOpacity] = useState(1);
+  const tipIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // 进度提示文字
   const progressTexts = [
@@ -113,12 +130,40 @@ export default function DreamProgressBar({
       clearInterval(floatingTextRef.current);
       floatingTextRef.current = null;
     }
+    if (tipIntervalRef.current !== null) {
+      clearInterval(tipIntervalRef.current);
+      tipIntervalRef.current = null;
+    }
   }, []);
 
   // 组件卸载时清理
   useEffect(() => {
     return cleanupAnimations;
   }, [cleanupAnimations]);
+
+  // 轮播提示动画 - 每5秒切换一次，淡入淡出效果
+  useEffect(() => {
+    if (isComplete) return;
+    
+    // 每5秒切换一次提示
+    tipIntervalRef.current = setInterval(() => {
+      // 淡出
+      setTipOpacity(0);
+      
+      // 300ms后切换内容并淡入
+      setTimeout(() => {
+        setTipIndex(prev => (prev + 1) % TIPS.length);
+        setTipOpacity(1);
+      }, 300);
+    }, 5000);
+    
+    return () => {
+      if (tipIntervalRef.current) {
+        clearInterval(tipIntervalRef.current);
+        tipIntervalRef.current = null;
+      }
+    };
+  }, [isComplete]);
 
   // 初始化轨道光点
   useEffect(() => {
@@ -307,8 +352,6 @@ export default function DreamProgressBar({
 
   const glowIntensity = 20 + glowPulse * 15;
 
-  // 默认消息
-  const displayMessage = message || '梦境正在编织中...';
   const statusText = isComplete ? '梦境已编织完成！' : '梦境编织中...';
 
   return (
@@ -578,8 +621,15 @@ export default function DreamProgressBar({
                 <div className={`text-xl font-semibold ${isDark ? 'text-white' : 'text-gray-800'}`}>
                   {statusText}
                 </div>
-                <div className={`text-sm mt-0.5 ${isDark ? 'text-white/60' : 'text-gray-500'}`}>
-                  {displayMessage}
+                <div 
+                  className={`text-sm mt-0.5 ${isDark ? 'text-white/60' : 'text-gray-500'}`}
+                  style={{ 
+                    opacity: tipOpacity, 
+                    transition: 'opacity 300ms ease-in-out',
+                    minHeight: '1.25rem',
+                  }}
+                >
+                  {TIPS[tipIndex]}
                 </div>
               </>
             )}
