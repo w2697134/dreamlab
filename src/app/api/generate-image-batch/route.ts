@@ -180,8 +180,8 @@ async function getOnlineInstances(): Promise<SDInstance[]> {
         name: inst.name,
         url: inst.url,
         vram: 24,
-        canSwitchModel: !inst.specialty, // 没有 specialty 的实例可以切换模型
-        fixedModel: inst.specialty as 'anime' | 'realistic' | undefined,
+        canSwitchModel: !inst.fixedModel, // 没有 fixedModel 的实例可以切换模型
+        fixedModel: inst.fixedModel as 'anime' | 'realistic' | undefined,
       });
     }
   }
