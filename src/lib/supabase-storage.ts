@@ -194,7 +194,7 @@ export async function cleanupOldDraftImages(hoursAgo: number = 1): Promise<void>
 }
 
 // 启动定时清理（每1小时执行一次）
-let cleanupInterval: NodeJS.Timeout | null = null;
+let cleanupInterval: ReturnType<typeof setInterval> | null = null;
 
 export function startCleanupScheduler(hours: number = 1): void {
   if (cleanupInterval) {

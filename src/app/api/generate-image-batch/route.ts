@@ -305,14 +305,14 @@ export async function POST(request: NextRequest) {
           throw new Error('缺少提示词');
         }
         
-        await sendProgress(controller, 'start', '这次生成的图，会悄悄记住你写的文字哦', 0);
+        await sendProgress(controller, 'start', '梦境正在编织中...', 0);
         
         // 【平滑过渡】从0%到10%的初始进度
         let initProgress = 0;
         const initInterval = setInterval(async () => {
           initProgress += 2;
           if (initProgress <= 10) {
-            await sendProgress(controller, 'start', '这次生成的图，会悄悄记住你写的文字哦', initProgress);
+            await sendProgress(controller, 'start', '梦境正在编织中...', initProgress);
           }
         }, 200);
         
@@ -326,13 +326,13 @@ export async function POST(request: NextRequest) {
         };
         
         const style = styleMapping[artStyle] || styleMapping['default'];
-        await sendProgress(controller, 'analyzing', '点一点上面的词，给下一张图一点灵感呀', 12);
+        await sendProgress(controller, 'analyzing', '正在解析你的梦境意象...', 12);
         
         // 选择实例（只用一台，SD内部批量生成）
         const { instance } = await selectInstance(style.model);
         
         clearInterval(initInterval);
-        await sendProgress(controller, 'analyzing', '点一点上面的词，给下一张图一点灵感呀', 18);
+        await sendProgress(controller, 'analyzing', '正在解析你的梦境意象...', 18);
         
         // 【分批生成】每批最多2张，避免显存不足
         const batchSize = 2;
@@ -347,7 +347,7 @@ export async function POST(request: NextRequest) {
           const batchStartProgress = 20 + (batch / batches) * 60;
           const batchEndProgress = 20 + ((batch + 1) / batches) * 60;
           
-          await sendProgress(controller, 'generating', '', batchStartProgress);
+          await sendProgress(controller, 'generating', 'AI正在描绘你的梦境画面...', batchStartProgress);
           
           // 【修复】每500ms更新2%进度，确保不卡住，直到SD生成完成
           let currentProgress = batchStartProgress;
@@ -355,7 +355,7 @@ export async function POST(request: NextRequest) {
             currentProgress += 2; // 每次增加2%
             // 限制在批次结束进度前5%，留一点给完成时更新
             if (currentProgress < batchEndProgress - 5) {
-              await sendProgress(controller, 'generating', '', currentProgress);
+              await sendProgress(controller, 'generating', 'AI正在描绘你的梦境画面...', currentProgress);
             }
           }, 500); // 每500ms更新一次 = 每秒4%，但前端限制显示每秒2%~10%
           
@@ -387,7 +387,7 @@ export async function POST(request: NextRequest) {
             const fallbackStyleName = isAnime ? '写实' : '二次元';
             
             console.log(`[生成] ${currentStyleName}实例失败，尝试${fallbackStyleName}实例...`);
-            await sendProgress(controller, 'generating', '', currentProgress);
+            await sendProgress(controller, 'generating', 'AI正在描绘你的梦境画面...', currentProgress);
             
             try {
               // 选择另一个模型类型的实例（跳过缓存，获取最新状态）
@@ -443,16 +443,16 @@ export async function POST(request: NextRequest) {
           savedImages.push({ imageUrl: url, index: i });
           // 每保存一张更新进度
           const saveProgress = 80 + ((i + 1) / allImages.length) * 15;
-          await sendProgress(controller, 'saving', '', saveProgress);
+          await sendProgress(controller, 'saving', '正在将梦境存入记忆...', saveProgress);
         }
         
         // 【平滑过渡】到100%
         for (let p = 95; p < 100; p += 2) {
-          await sendProgress(controller, 'complete', '', p);
+          await sendProgress(controller, 'complete', '梦境即将呈现...', p);
           await new Promise(r => setTimeout(r, 50));
         }
         
-        await sendProgress(controller, 'complete', '如果梦做完了，点完成把它藏进回忆叭', 100, {
+        await sendProgress(controller, 'complete', '你的梦境已编织完成', 100, {
           success: true,
           results: savedImages,
           count: savedImages.length,

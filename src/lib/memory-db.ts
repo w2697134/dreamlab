@@ -294,11 +294,7 @@ export function shouldUseMemoryDB(): boolean {
   return !process.env.COZE_SUPABASE_URL || !process.env.COZE_SUPABASE_SERVICE_ROLE_KEY;
 }
 
-// 如果配置了 Supabase，导出 Supabase 客户端
-if (!shouldUseMemoryDB()) {
-  console.log('[数据库] 使用 Supabase 持久化存储');
-  // 动态导入 Supabase DB
-  module.exports = require('./supabase-db');
-} else {
+// 模块加载时输出日志
+if (shouldUseMemoryDB()) {
   console.log('[内存DB] 模块已加载，服务器重启后数据会丢失');
 }

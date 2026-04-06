@@ -480,10 +480,10 @@ export default function DreamGenerator({ onBack }: DreamGeneratorProps = {}) {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const inputTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const autoRefreshTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const preloadTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const inputTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoRefreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const preloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const userInteractedRef = useRef(false); // 用于定时器中检查最新值
   const preloadedKeywordsRef = useRef<string[] | null>(null); // 用于定时器中访问预加载的关键词
   const lastInputRef = useRef<string>(''); // 用于比较输入是否真的变化了

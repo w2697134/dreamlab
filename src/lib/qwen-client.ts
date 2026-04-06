@@ -88,6 +88,9 @@ async function callKimi(messages: QwenMessage[]): Promise<string> {
   }
 
   const data = await response.json();
+  if (!data.choices || data.choices.length === 0) {
+    throw new Error('Kimi API 返回空 choices');
+  }
   return data.choices[0].message.content;
 }
 

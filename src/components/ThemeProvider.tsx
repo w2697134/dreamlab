@@ -60,14 +60,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     };
     
     window.addEventListener('authStateChanged', handleAuthChange);
-    window.addEventListener('storage', (e: StorageEvent) => {
+    
+    const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'dreamUser' || e.key === 'dreamToken') {
         initTheme();
       }
-    });
+    };
+    window.addEventListener('storage', handleStorageChange);
     
     return () => {
       window.removeEventListener('authStateChanged', handleAuthChange);
+      window.removeEventListener('storage', handleStorageChange);
     };
   }, []);
 

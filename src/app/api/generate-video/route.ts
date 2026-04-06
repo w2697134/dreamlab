@@ -34,26 +34,13 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 使用千问模型生成视频描述（千问暂不支持视频生成，返回描述文本）
-    const response = await (client as any).invoke([
-      { role: 'system', content: '你是一个视频生成助手。请根据用户提供的图片和描述，生成一个视频创意描述。' },
-      { role: 'user', content: prompt || '根据图片生成视频' }
-    ], {
-      model: 'qwen3.5 9b',
-      temperature: 0.7,
-    });
+    // 视频生成功能暂未实现
+    // const response = await client.invoke(...)
     
-    // 千问不支持视频生成，返回模拟响应
-    const mockResponse = {
-      videoUrl: null,
-      message: '千问模型暂不支持视频生成功能，仅返回文本描述：' + response.content
-    };
-
-    // 千问不支持视频生成，返回提示信息
+    // 视频生成功能暂未实现
     return NextResponse.json({ 
       success: false,
-      error: '千问模型暂不支持视频生成功能，请使用其他视频生成服务',
-      message: mockResponse.message
+      error: '视频生成功能暂未实现，敬请期待',
     }, { status: 501 })
   } catch (error) {
     console.error('Video generation error:', error);

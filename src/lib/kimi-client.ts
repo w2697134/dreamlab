@@ -24,6 +24,9 @@ export async function invokeKimi(messages: Array<{role: string, content: string}
   }
 
   const data = await response.json();
+  if (!data.choices || data.choices.length === 0) {
+    throw new Error('Kimi API 返回空 choices');
+  }
   return data.choices[0].message.content;
 }
 

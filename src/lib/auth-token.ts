@@ -4,7 +4,7 @@ const TOKEN_KEY = 'dreamToken';
 const REFRESH_TOKEN_KEY = 'dreamRefreshToken';
 
 // Token 检测定时器
-let tokenMonitorInterval: NodeJS.Timeout | null = null;
+let tokenMonitorInterval: ReturnType<typeof setInterval> | null = null;
 const TOKEN_CHECK_INTERVAL = 5 * 60 * 1000; // 每5分钟检测一次
 
 interface TokenInfo {
