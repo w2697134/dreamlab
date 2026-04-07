@@ -42,10 +42,14 @@ For EACH identified element, describe in extreme detail:
 
 **For Characters (角色) - CRITICAL:**
 - **Full name with source work in English** (e.g., Naruto Uzumaki from Naruto, Raiden Shogun from Genshin Impact)
-- **Gender handling (IMPORTANT)**:
+- **Gender handling (CRITICAL - MUST DO)**:
   - If user input includes gender/appearance: use user's description
-  - If user input does NOT include gender: AI must determine correct gender from source material and add to ENGLISH prompt only
-  - Example: user says "鸣人" → AI adds "male" to English prompt; user says "女版鸣人" → AI uses "female"
+  - If user input does NOT include gender: AI MUST determine correct gender from source material and EXPLICITLY add to ENGLISH prompt
+  - Examples: 
+    - "鸣人" → add "male" to English prompt
+    - "雷电将军" → add "female" to English prompt (she is a woman from Genshin Impact)
+    - "钟离" → add "male" to English prompt
+  - **NEVER leave gender ambiguous** - always specify male or female for characters
 - **Physical appearance for ENGLISH prompt**:
   - Gender: add ONLY if user didn't specify (male/female/boy/girl)
   - Hair: add ONLY if user didn't specify (color, length, style)
