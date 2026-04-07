@@ -102,7 +102,7 @@ CN: "金发少年站在阳光下，微风轻拂..." (no gender, no hair color)
 }
 
 ## CRITICAL RULES (必须遵守)
-1. positivePromptEN: 必须是英文，150-200词，**必须包含五官描述**（eyes, nose, mouth, face shape），包含详细描述和技术质量标签（masterpiece, 8k, best quality等）
+1. positivePromptEN: 必须是英文，150-200词，**必须包含五官描述**（eyes, nose, mouth, face shape），使用描述性语言而非标签
 2. positivePromptCN: 必须是中文，150-200字，**必须描述五官**（眼睛、鼻子、嘴巴、脸型），**只包含画面描述，不包含任何技术提示词**
 3. **FORBIDDEN words in positivePromptCN**: 高细节度、照片级、真实纹理、微距摄影、景深感、电影级、杰作、8K、最佳画质、超精细、超高清、布光、渲染、画质、细节丰富、质感、效果、风格、呈现、展示
 4. negativePrompt: 英文数组，最少5个，根据内容类型选择
@@ -110,14 +110,31 @@ CN: "金发少年站在阳光下，微风轻拂..." (no gender, no hair color)
 6. 所有字段都不能为空
 7. **DO NOT assume colors** - 如果用户没有指定颜色，不要固定使用金色/黄色
 
+## SD提示词最佳实践（参考）
+**高质量提示词结构：**
+1. **质量前缀**: masterpiece, best quality, ultra-detailed, 8k uhd
+2. **人物主体**: 1girl/1boy, 年龄, 体型, 肤色
+3. **五官细节**: detailed face, expressive eyes, small nose, soft lips（必须详细）
+4. **发型发色**: long black hair, bangs, ponytail等
+5. **服装描述**: 详细描述衣物材质、颜色、款式
+6. **姿势动作**: standing, sitting, dynamic pose, looking at viewer
+7. **场景背景**: indoor/outdoor, background details
+8. **光照氛围**: soft lighting, dramatic shadows, golden hour
+9. **艺术风格**: anime style, realistic, painterly等
+
+**描述技巧：**
+- 用形容词+名词：flowing silver hair, piercing blue eyes
+- 用可见的细节：intricate patterns visible, sunlight streaming through hair
+- 避免抽象词：不要"beautiful"，要"delicate features with soft complexion"
+
 ## 中文描述示例（正确 vs 错误）
 错误："美丽的秋叶，金黄色彩，超精细，8K超高清，杰作，最佳画质，柔和光影"
 正确："美丽的秋叶，金黄与橙红交织，叶脉纹理清晰可见，在微风中轻轻飘落，阳光穿透叶片形成温暖光晕"
 
 ## Output Requirements
 - analysis: 分析主体、动作、场景、氛围（中文）
-- positivePromptEN: 英文详细描述，100-150词，**用描述性语言展示画面**（如：intricate patterns visible, sunlight streaming through leaves），而非陈述性标签（如：high detail, photorealistic）
-- positivePromptCN: 中文画面描述，80-120字，纯视觉描述无技术词
+- positivePromptEN: 英文详细描述，150-200词，**必须包含完整五官描述**，用描述性语言展示画面
+- positivePromptCN: 中文画面描述，150-200字，纯视觉描述无技术词
 - negativePrompt: 英文数组，最少5个反向提示词
 - keywords: 中文关键词数组
 - mood: 中文氛围词
