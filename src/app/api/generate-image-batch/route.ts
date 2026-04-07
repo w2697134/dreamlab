@@ -244,8 +244,27 @@ async function selectInstance(
   if (fixedModelInstances.length > 0) {
     // 使用第一个匹配的固定模型实例
     const dedicatedInstance = fixedModelInstances[0];
+    
+    // 【修复】即使是固定模型实例，也要检查当前模型是否正确
+    const currentModel = await getCurrentModel(dedicatedInstance.url);
+    const targetFile = MODEL_FILES[targetModel];
+    const { isModelMatch } = await import('@/lib/model-matcher');
+    const targetModelName = targetModel === 'anime' ? 'anything' : 'realistic';
+    const isMatch = currentModel ? await isModelMatch(currentModel, targetModelName, 0.55) : false;
+    
+    if (!isMatch) {
+      console.log(`[路由] 专用实例模型不匹配，尝试切换: ${currentModel} -> ${targetFile}`);
+      try {
+        await switchModel(dedicatedInstance.url, targetFile);
+        console.log(`[路由] 模型切换成功，等待加载...`);
+        await new Promise(r => setTimeout(r, 5000)); // 等待模型加载
+      } catch (e) {
+        console.warn(`[路由] 专用实例模型切换失败: ${e}`);
+      }
+    }
+    
     console.log(`[路由] 使用专用${MODEL_NAMES[targetModel]}实例: ${dedicatedInstance.name}`);
-    return { instance: dedicatedInstance, needSwitch: false };
+    return { instance: dedicatedInstance, needSwitch: !isMatch };
   }
   
   // 【备选】找可切换模型的实例
