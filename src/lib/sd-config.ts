@@ -138,16 +138,20 @@ export interface SDInstance {
   isAvailable: boolean;
 }
 
-// 多实例配置 - 固定写实模型
+// 多实例配置 - 远程SD实例（通过cpolar）
 const SD_INSTANCES_CONFIG: Omit<SDInstance, 'isAvailable'>[] = [
   {
-    id: 'main',
+    id: 'anime',
+    name: '二次元实例',
+    url: 'https://dreamlab0.cpolar.top',
+    specialty: 'anime',
+    isDefault: true,
+  },
+  {
+    id: 'realistic',
     name: '写实实例',
     url: 'http://textimage.cpolar.top',
-    fixedModelFile: 'Realistic_Vision_V2.0-fp16-no-ema.safetensors',
-    fixedModelName: 'Realistic Vision V2.0',
     specialty: 'realistic',
-    isDefault: true,
   },
 ];
 
