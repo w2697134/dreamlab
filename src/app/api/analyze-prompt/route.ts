@@ -202,7 +202,7 @@ ${keywordSummary || '（无标签）'}
     console.log('[AI] 解析: 人物=' + (analysisResult.analysis?.subject?.substring(0, 20) || '无') + ', 模型=' + analysisResult.model);
 
     // 确保有中文描述
-    if (!analysisResult.positivePromptCN || analysisResult.positivePromptCN === inputSummary) {
+    if (!analysisResult.positivePromptCN) {
       console.warn('[AI分析] 警告: AI未生成中文描述，使用原始输入');
       analysisResult.positivePromptCN = inputSummary || '梦境场景';
     }
