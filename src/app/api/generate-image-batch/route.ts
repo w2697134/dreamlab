@@ -275,14 +275,14 @@ export async function POST(request: NextRequest) {
         
         await sendProgress(controller, 'start', '梦境正在编织中...', 0);
         
-        // 【平滑过渡】从0%到10%的初始进度
+        // 【平滑过渡】从0%到10%的初始进度（加快更新频率）
         let initProgress = 0;
         const initInterval = setInterval(async () => {
-          initProgress += 2;
+          initProgress += 1;
           if (initProgress <= 10) {
             await sendProgress(controller, 'start', '梦境正在编织中...', initProgress);
           }
-        }, 200);
+        }, 50);
         
         // 风格映射：写实/水彩/油画用realistic模型，二次元用anime模型
         const styleMapping: Record<string, { model: 'realistic' | 'anime'; promptSuffix: string; name: string }> = {
