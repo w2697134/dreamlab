@@ -864,12 +864,18 @@ async function checkAndSwitchModels() {
   }
 }
 
-// 启动定时检查（仅在服务器端）
-if (typeof window === 'undefined') {
-  setInterval(checkAndSwitchModels, MODEL_CHECK_INTERVAL);
-  console.log('[SD定时检查] 已启动，每5分钟检查一次');
-  // 立即执行一次检查
-  checkAndSwitchModels();
+// 定时检查启动标志
+let isModelCheckStarted = false;
+
+// 启动定时检查（仅在服务器端运行时调用）
+export function startModelCheckTimer() {
+  if (typeof window === 'undefined' && !isModelCheckStarted) {
+    isModelCheckStarted = true;
+    setInterval(checkAndSwitchModels, MODEL_CHECK_INTERVAL);
+    console.log('[SD定时检查] 已启动，每5分钟检查一次');
+    // 延迟执行第一次检查，避免启动时阻塞
+    setTimeout(checkAndSwitchModels, 10000);
+  }
 }
 
 // ==================== SD 中断生成 ====================
