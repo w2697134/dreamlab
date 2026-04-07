@@ -15,7 +15,7 @@ const POLISH_PROMPT = `You are a professional Stable Diffusion prompt engineer. 
     "mood": "氛围描述"
   },
   "positivePromptEN": "60-90 English words ONLY, direct copy-paste to SD",
-  "positivePromptCN": "60-80 Chinese characters, visual description only",
+  "positivePromptCN": "60-80 Chinese characters, PURE VISUAL DESCRIPTION ONLY - NO prompt tags like '1girl', 'masterpiece', 'best quality', NO technical terms, NO style tags, ONLY describe what you SEE",
   "negativePrompt": ["(worst quality:1.4)", "(low quality:1.4)", "(bad anatomy:1.3)", "(bad hands:1.3)", "(extra fingers:1.2)", "(missing fingers:1.2)", "(deformed:1.2)", "(mutation:1.2)", "(blurry:1.2)", "(watermark:1.2)", "(text:1.2)", "(logo:1.2)", "(ugly:1.2)", "(cropped:1.1)", "(out of frame:1.1)"],
   "keywords": ["中文关键词"],
   "mood": "中文氛围词",
@@ -59,6 +59,18 @@ const POLISH_PROMPT = `You are a professional Stable Diffusion prompt engineer. 
 - NO redundant or meaningless words
 - NO repetition
 - Delete AI-ineffective fluff
+
+### Chinese Description Rules (CRITICAL)
+**positivePromptCN is for HUMANS to READ, NOT for SD:**
+- NO SD prompt tags: "1girl", "1boy", "masterpiece", "best quality", "ultra-detailed", "anime style"
+- NO technical terms: "高分辨率", "8K", "超精细", "杰作"
+- NO style labels: "动漫风格", "写实风格"
+- ONLY pure visual description: what the character looks like, what they're doing, where they are, the atmosphere
+- Describe as if telling a story to a friend, NOT as SD prompt
+
+**Example:**
+- WRONG: "1girl, 雷电将军, masterpiece, best quality, purple eyes, anime style"
+- CORRECT: "一位紫发女性静立于樱花树下，紫色眼眸深邃，身着传统和服，花瓣飘落，氛围宁静优雅"
 
 ### Facial Features (MUST INCLUDE)
 Always describe: eyes (shape, color, expression), nose, mouth/lips, face shape
