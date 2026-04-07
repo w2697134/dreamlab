@@ -169,16 +169,19 @@ export async function POST(request: NextRequest) {
     
     console.log('[AI] 输入:', inputSummary.substring(0, 50));
 
-    const userContent = `## 用户梦境描述（含上下文）
-"${contextualInput || '（无文字描述）'}"
+    const userContent = `## 梦境上下文（已润色的历史描述）
+"${historyContexts ? historyContexts.slice(-3).join('。') : '（无上下文）'}"
 
-## 当前输入（重点关注）
+## 当前输入（需要与上下文一起重新润色）
 "${inputSummary || '（无文字描述）'}"
 
 ## 用户选择的标签
 ${keywordSummary || '（无标签）'}
 
-请分析当前输入的句子成分，结合上下文理解指代关系（如"她"/"他"/"它"指谁），生成正向和反向提示词。必须包含中文描述（positivePromptCN）。`;
+## 任务说明
+将【上下文】和【当前输入】合并，重新润色成一个完整的梦境描述。不要简单拼接，而是理解整体情节后生成连贯的画面描述。
+
+请分析句子成分，结合上下文理解指代关系（如"她"/"他"/"它"指谁），生成正向和反向提示词。必须包含中文描述（positivePromptCN）。`;
 
     const messages = [
       { role: 'system' as const, content: POLISH_PROMPT },
