@@ -240,7 +240,7 @@ ${keywordHint}
         mood: '神秘' 
       },
       positivePromptEN: inputSummary || 'dream scene',
-      positivePromptCN: inputSummary || '梦境场景',
+      positivePromptCN: '画面中的场景如梦似幻，细节在光影中若隐若现，氛围宁静而神秘',
       negativePrompt: ['ugly', 'blurry', 'low quality', 'bad anatomy', 'worst quality'],
       keywords: selectedKeywords || [],
       mood: '平静',
@@ -251,9 +251,9 @@ ${keywordHint}
     console.log('[AI] 解析: 人物=' + (analysisResult.analysis?.subject?.substring(0, 20) || '无') + ', 模型=' + analysisResult.model);
 
     // 确保有中文描述
-    if (!analysisResult.positivePromptCN) {
-      console.warn('[AI分析] 警告: AI未生成中文描述，使用原始输入');
-      analysisResult.positivePromptCN = inputSummary || '梦境场景';
+    if (!analysisResult.positivePromptCN || analysisResult.positivePromptCN === inputSummary) {
+      console.warn('[AI分析] 警告: AI未生成中文描述，使用默认文学描述');
+      analysisResult.positivePromptCN = '画面中的场景如梦似幻，细节在光影中若隐若现，氛围宁静而神秘';
     }
 
     // 确保反向提示词至少有5个
