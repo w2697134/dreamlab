@@ -6,6 +6,7 @@
     "fixedModelFile": "anything-v5.safetensors",
     "fixedModelName": "Anything V5.0",
     "fixedModel": "anime",
+    "specialty": "anime",
     "canSwitchModel": false,
     "isDefault": false,
     "isAvailable": true
@@ -17,6 +18,7 @@
     "fixedModelFile": "",
     "fixedModelName": "待配置",
     "fixedModel": "realistic",
+    "specialty": "realistic",
     "canSwitchModel": false,
     "isDefault": false,
     "isAvailable": true
