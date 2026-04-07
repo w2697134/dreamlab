@@ -46,6 +46,7 @@ const POLISH_PROMPT = `You are a professional Stable Diffusion prompt engineer. 
 6. **Lighting & Atmosphere** - soft lighting, dreamy glow, golden hour
 7. **Quality Tags** - masterpiece, best quality, ultra-detailed
 8. **Style Tags** - anime style, dreamy atmosphere, pastel colors
+9. **User Selected Keywords** - Include keywords from user selection at LOW priority (weight 0.9 or no weight), place at the END of prompt
 
 ### Weight Syntax (Optional)
 - Use (keyword:1.2) for emphasis
@@ -148,14 +149,21 @@ export async function POST(request: NextRequest) {
     // 构建上文（历史润色描述）和下文（当前输入）
     const previousContext = historyContexts ? historyContexts.slice(-3).join('。') : '';
     
+    // 构建用户选择的关键词提示
+    const keywordHint = selectedKeywords && selectedKeywords.length > 0 
+      ? `用户选择的关键词（次要，放在提示词末尾，低权重）：${selectedKeywords.join('、')}`
+      : '用户未选择额外关键词';
+    
     const userContent = `上文："${previousContext || '（无上文）'}"
 下文："${inputSummary || '（无下文）'}"
+${keywordHint}
 
 请完成以下任务（一次完成）：
 1. 先润色下文，理解其句子成分和画面内容
 2. 将润色后的下文与上文结合，生成一个连贯的完整场景描述
 3. 如果下文提到的人物/物体在上文出现过，保持连续性
 4. 如果下文提到的是新的人物/物体（不同性别、名字、描述），将其加入场景，不要与上文人物合并
+5. 将用户选择的关键词放在提示词末尾，使用低权重(0.9)或不加权
 
 最终输出要求：生成正向和反向提示词，必须包含中文描述（positivePromptCN）。`;
 
