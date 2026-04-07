@@ -8,9 +8,9 @@ interface GlobalLoadingProps {
 }
 
 // 白天模式加载图片路径
-const DAY_LOADING_IMAGE = '/images/loading-day.png';
+const DAY_LOADING_IMAGE = '/assets/day-loading.png';
 // 夜间模式加载图片路径  
-const NIGHT_LOADING_IMAGE = '/images/loading-night.png';
+const NIGHT_LOADING_IMAGE = '/assets/night-loading.jpeg';
 
 export default function GlobalLoading({ isOpen, text }: GlobalLoadingProps) {
   const { mode } = useTheme();

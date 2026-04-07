@@ -6,9 +6,9 @@ import { useNavigation } from '@/components/NavigationProvider';
 import { useTheme } from '@/components/ThemeProvider';
 
 // 白天模式加载图片路径
-const DAY_LOADING_IMAGE = '/images/loading-day.png';
+const DAY_LOADING_IMAGE = '/assets/day-loading.png';
 // 夜间模式加载图片路径  
-const NIGHT_LOADING_IMAGE = '/images/loading-night.png';
+const NIGHT_LOADING_IMAGE = '/assets/night-loading.jpeg';
 
 /**
  * 页面跳转加载动画组件
