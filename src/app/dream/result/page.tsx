@@ -130,8 +130,16 @@ export default function DreamResultPage() {
         });
       }
       // 读取最后一次生成图片的润色描述
+      console.log('[结果页面] 读取 dreamResultData:', data);
       if (data.polishedPromptCN) {
+        console.log('[结果页面] 设置润色描述:', data.polishedPromptCN);
         setPolishedPromptCN(data.polishedPromptCN);
+      } else {
+        console.log('[结果页面] 没有润色描述，使用 userInput:', data.userInput);
+        // 如果没有润色描述，使用 userInput 作为备选
+        if (data.userInput) {
+          setPolishedPromptCN(data.userInput);
+        }
       }
       if (data.dreamSetId) {
         setDreamSetName(`梦境 ${new Date().toLocaleDateString('zh-CN')}`);
@@ -642,12 +650,12 @@ export default function DreamResultPage() {
           </div>
         )}
 
-        {/* 梦境总结区域 */}
-        {(selectedImages.length > 0 || finalVideo) && !saveSuccess && (
+        {/* 梦境总结区域 - 始终显示润色后的描述 */}
+        {(selectedImages.length > 0 || finalVideo) && (
           <div className={`mb-6 p-4 rounded-2xl ${mode === 'dark' ? 'bg-blue-500/10' : 'bg-blue-50'}`}>
             <div className="flex items-center justify-between mb-3">
               <h3 className={`text-sm font-medium ${mode === 'dark' ? 'text-blue-300' : 'text-blue-600'}`}>
-                📝 梦境总结
+                📝 梦境描述
               </h3>
             </div>
             {polishedPromptCN ? (

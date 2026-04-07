@@ -470,6 +470,7 @@ export default function AssessmentPage() {
       
       if (data.success && data.polished) {
         setDreamInput(data.polished);
+        setPolishedPromptCN(data.polished); // 保存润色后的内容
         showToast('AI润色完成！', 'success');
       } else {
         showToast(data.error || '润色失败，请重试', 'error');
@@ -643,6 +644,27 @@ export default function AssessmentPage() {
                       : 'bg-gray-50 text-gray-800 placeholder-gray-400 border border-gray-200 focus:border-sky-500'
                   } focus:outline-none`}
                 />
+                
+                {/* 润色后的总句子 */}
+                {polishedPromptCN && (
+                  <div className={`mt-3 p-3 rounded-xl border ${
+                    mode === 'dark' 
+                      ? 'bg-sky-500/10 border-sky-500/30' 
+                      : 'bg-sky-50 border-sky-200'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <svg className={`w-3.5 h-3.5 ${mode === 'dark' ? 'text-sky-400' : 'text-sky-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      <span className={`text-xs font-medium ${mode === 'dark' ? 'text-sky-300' : 'text-sky-600'}`}>
+                        AI润色后的描述
+                      </span>
+                    </div>
+                    <p className={`text-sm leading-relaxed ${mode === 'dark' ? 'text-white/80' : 'text-gray-700'}`}>
+                      {polishedPromptCN}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* 右侧：图片选择和上传 */}

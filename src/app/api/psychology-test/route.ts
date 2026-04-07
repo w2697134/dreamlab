@@ -215,12 +215,39 @@ ${dreamThemes}
     const jsonMatch = content.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
       const questions = JSON.parse(jsonMatch[0]);
-      const validQuestions = questions.map((q: any) => ({
-        ...q,
-        // 确保有affects字段，默认影响主维度
-        affects: q.affects || { [q.category]: 1.0 }
-      }));
-      console.log(`[心理测评] AI生成${validQuestions.length}道题`);
+      
+      // 中文维度名到英文的映射
+      const categoryMapping: Record<string, string> = {
+        '工作': 'work',
+        '工作/学习': 'work',
+        '人际关系': 'relationship',
+        '情绪': 'emotion',
+        '情绪状态': 'emotion',
+        '自我': 'self',
+        '自我认知': 'self',
+        '生活': 'life',
+        '生活压力': 'life'
+      };
+      
+      const validQuestions = questions.map((q: any) => {
+        // 转换 affects 中的中文键名为英文
+        let affects = q.affects;
+        if (affects && typeof affects === 'object') {
+          const convertedAffects: Record<string, number> = {};
+          Object.entries(affects).forEach(([key, value]) => {
+            const englishKey = categoryMapping[key] || key;
+            convertedAffects[englishKey] = value as number;
+          });
+          affects = convertedAffects;
+        }
+        
+        return {
+          ...q,
+          // 确保有affects字段，默认影响主维度
+          affects: affects || { [q.category]: 1.0 }
+        };
+      });
+      console.log(`[心理测评] AI生成${validQuestions.length}道题`, validQuestions.map((q: any) => ({ id: q.id, affects: q.affects })));
       return validQuestions.slice(0, 8);
     }
   } catch (error) {
@@ -392,6 +419,9 @@ function calculateResult(
     }
   });
 
+  // 综合压力指数（取加权平均）- 先计算，后面要用
+  const stressLevel = Math.round(totalStress / questions.length);
+  
   // 计算各维度最终得分（加权平均）
   const stressSources = {
     work: 0, relationship: 0, emotion: 0, self: 0, life: 0
@@ -401,11 +431,13 @@ function calculateResult(
   
   CATEGORIES.forEach(cat => {
     if (multiWeights[cat] > 0) {
-      stressSources[cat as keyof typeof stressSources] = Math.round(
-        multiScores[cat] / multiWeights[cat]
-      );
-      maxStress = Math.max(maxStress, stressSources[cat as keyof typeof stressSources]);
+      const score = Math.round(multiScores[cat] / multiWeights[cat]);
+      stressSources[cat as keyof typeof stressSources] = score;
+      maxStress = Math.max(maxStress, score);
       answeredCount++;
+    } else {
+      // 该维度没有权重，使用综合压力水平作为默认值
+      stressSources[cat as keyof typeof stressSources] = stressLevel;
     }
   });
   
@@ -416,9 +448,6 @@ function calculateResult(
       stressSources[cat as keyof typeof stressSources] = 50; // 默认中等压力
     });
   }
-
-  // 综合压力指数（取加权平均）
-  const stressLevel = Math.round(totalStress / questions.length);
 
   // 压力等级（危险=红，临界=黄，健康=绿）
   let stressLabel: string;

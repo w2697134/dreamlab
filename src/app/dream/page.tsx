@@ -2301,7 +2301,14 @@ export default function DreamPage() {
     const dreamSetId = Date.now().toString();
     
     // 【修复】直接使用 ref 中的值，避免 usePersistentState 的防抖延迟
+    // 优先级：ref > state > currentPrompt
     const finalPolishedPromptCN = polishedPromptCNRef.current || lastPolishedPromptCN || currentPrompt;
+    console.log('[完成] 保存润色描述:', {
+      ref: polishedPromptCNRef.current,
+      state: lastPolishedPromptCN,
+      current: currentPrompt,
+      final: finalPolishedPromptCN
+    });
     
     const resultData = {
       dreamSetId,
