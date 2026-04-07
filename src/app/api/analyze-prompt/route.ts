@@ -93,8 +93,8 @@ CN: "金发少年站在阳光下，微风轻拂..." (no gender, no hair color)
     "setting": "场景设定",
     "mood": "氛围描述"
   },
-  "positivePromptEN": "Detailed ENGLISH prompt for SD, 150-200 words, MUST INCLUDE facial features (eyes, nose, mouth, face shape), INCLUDE quality tags like masterpiece, 8k, etc.",
-  "positivePromptCN": "Pure Chinese scene description, 150-200 characters, MUST describe facial features (eyes, nose, mouth, face shape), NO technical tags, ONLY visual description",
+  "positivePromptEN": "Detailed ENGLISH prompt for SD, 60-80 words, MUST INCLUDE facial features (eyes, nose, mouth, face shape), INCLUDE quality tags like masterpiece, 8k, etc.",
+  "positivePromptCN": "Pure Chinese scene description, 60-80 characters, MUST describe facial features (eyes, nose, mouth, face shape), NO technical tags, ONLY visual description",
   "negativePrompt": ["english_negative1", "english_negative2", "..."],
   "keywords": ["中文关键词"],
   "mood": "中文氛围词",
@@ -102,8 +102,8 @@ CN: "金发少年站在阳光下，微风轻拂..." (no gender, no hair color)
 }
 
 ## CRITICAL RULES (必须遵守)
-1. positivePromptEN: 必须是英文，150-200词，**必须包含五官描述**（eyes, nose, mouth, face shape），使用描述性语言而非标签
-2. positivePromptCN: 必须是中文，150-200字，**必须描述五官**（眼睛、鼻子、嘴巴、脸型），**只包含画面描述，不包含任何技术提示词**
+1. positivePromptEN: 必须是英文，60-80词，**必须包含五官描述**（eyes, nose, mouth, face shape），使用描述性语言而非标签
+2. positivePromptCN: 必须是中文，60-80字，**必须描述五官**（眼睛、鼻子、嘴巴、脸型），**只包含画面描述，不包含任何技术提示词**
 3. **FORBIDDEN words in positivePromptCN**: 高细节度、照片级、真实纹理、微距摄影、景深感、电影级、杰作、8K、最佳画质、超精细、超高清、布光、渲染、画质、细节丰富、质感、效果、风格、呈现、展示
 4. negativePrompt: 英文数组，最少5个，根据内容类型选择
 5. analysis: 必须包含完整的中文分析
@@ -133,8 +133,8 @@ CN: "金发少年站在阳光下，微风轻拂..." (no gender, no hair color)
 
 ## Output Requirements
 - analysis: 分析主体、动作、场景、氛围（中文）
-- positivePromptEN: 英文详细描述，150-200词，**必须包含完整五官描述**，用描述性语言展示画面
-- positivePromptCN: 中文画面描述，150-200字，纯视觉描述无技术词
+- positivePromptEN: 英文详细描述，60-80词，**必须包含完整五官描述**，用描述性语言展示画面
+- positivePromptCN: 中文画面描述，60-80字，纯视觉描述无技术词
 - negativePrompt: 英文数组，最少5个反向提示词
 - keywords: 中文关键词数组
 - mood: 中文氛围词
