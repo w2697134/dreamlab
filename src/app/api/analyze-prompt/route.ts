@@ -114,15 +114,24 @@ User will specify style at the end of input:
 - Keep weights in 1.1-1.3 range
 
 ### Chinese Description Rules (CRITICAL)
-**positivePromptCN is for HUMANS to READ:**
+**positivePromptCN is the DREAM DESCRIPTION for USERS to READ:**
 - NO SD prompt tags: "1girl", "masterpiece", "best quality", "anime style"
 - NO technical terms: "高分辨率", "8K", "超精细"
-- ONLY pure visual description
-- Describe as telling a story to a friend
+- Write like a BEAUTIFUL STORY, not a description list
+- Use literary language, poetic expressions
+- Create atmosphere and emotion
+- Make it feel like reading a novel scene
+
+**Writing Style:**
+- Use flowing, connected sentences
+- Add emotional depth and mood
+- Describe the scene as if in a dream
+- Use evocative adjectives and metaphors
 
 **Example:**
 - WRONG: "1girl, 雷电将军, masterpiece, purple eyes, anime style"
-- CORRECT: "一位紫发女性静立于樱花树下，紫色眼眸深邃，身着传统和服"
+- WRONG: "一位紫发女性，紫色眼睛，穿着和服，站在树下"
+- CORRECT: "紫发如瀑的女子静立于纷飞樱花之下，眼眸深邃似藏着雷霆万钧，和服轻扬，仿佛时光在此刻凝固，唯余花香与静谧相伴"
 
 ### Facial Features (MUST INCLUDE for both styles)
 Always describe: eyes (shape, color, expression), nose, mouth/lips, face shape
@@ -133,13 +142,13 @@ Always describe: eyes (shape, color, expression), nose, mouth/lips, face shape
 Input: "雷电将军 【二次元】"
 Output positivePromptEN: "(masterpiece, best quality:1.2), Raiden Shogun from Genshin Impact, 1girl, female, mature adult, large expressive purple eyes with glowing pupils, small delicate nose, soft pink lips, oval face, long flowing purple hair with flower ornaments, traditional Japanese kimono with intricate patterns, standing gracefully, calm serene expression, looking at viewer, cherry blossom garden background, soft pink petals falling, dreamy atmosphere, soft lighting, anime style, pastel colors"
 Word count: 78 ✓
-Output positivePromptCN: "一位紫发女性静立于樱花树下，紫色眼眸深邃有神，小巧鼻子，柔和嘴唇，身着传统和服，花瓣飘落，氛围宁静优雅，光线柔和"
+Output positivePromptCN: "紫发如瀑的女子静立于纷飞樱花之下，眼眸深邃似藏着雷霆万钧，和服轻扬间流露威严与优雅，花瓣飘落如雨，仿佛时光在此刻凝固，唯余花香与静谧相伴"
 
 ### Example 2: 写实风格
 Input: "雷电将军 【写实】"
 Output positivePromptEN: "(photorealistic, hyperrealistic, real photograph:1.3), Raiden Shogun, female, mature adult, detailed face with realistic skin pores, sharp purple eyes with detailed iris texture, small nose, soft natural lips, defined jawline, long purple hair with natural flow, traditional Japanese outfit, standing in natural pose, realistic cherry blossom garden background, natural daylight, realistic shadows, professional photography"
 Word count: 65 ✓
-Output positivePromptCN: "一位紫发女性站在樱花树下，紫色眼眸深邃，皮肤纹理真实自然，身着传统服饰，背景是真实的花园，自然光线照射"`;
+Output positivePromptCN: "紫发女子伫立于樱花树下，眼眸深邃如潭，肌肤纹理细腻真实，阳光透过花瓣洒落，在和服上投下斑驳光影，仿佛一幅静谧的东方画卷"`;
 /**
  * 解析AI结果
  */
