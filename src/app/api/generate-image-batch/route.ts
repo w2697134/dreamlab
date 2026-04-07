@@ -236,68 +236,17 @@ async function selectInstance(
     throw new Error('没有可用的 SD 实例');
   }
   
-  // 【优先】找固定模型匹配的实例（专用实例优先于可切换实例）
-  const fixedModelInstances = onlineInstances.filter(
-    i => i.specialty === targetModel && !i.canSwitchModel
-  );
+  // 【固定】根据目标风格选择对应实例，不检查模型，不切换
+  const targetInstance = onlineInstances.find(i => i.specialty === targetModel);
   
-  if (fixedModelInstances.length > 0) {
-    // 使用第一个匹配的固定模型实例
-    const dedicatedInstance = fixedModelInstances[0];
-    
-    // 【修复】即使是固定模型实例，也要检查当前模型是否正确
-    const currentModel = await getCurrentModel(dedicatedInstance.url);
-    const targetFile = MODEL_FILES[targetModel];
-    const { isModelMatch } = await import('@/lib/model-matcher');
-    const targetModelName = targetModel === 'anime' ? 'anything' : 'realistic';
-    const isMatch = currentModel ? await isModelMatch(currentModel, targetModelName, 0.55) : false;
-    
-    if (!isMatch) {
-      console.log(`[路由] 专用实例模型不匹配，尝试切换: ${currentModel} -> ${targetFile}`);
-      try {
-        await switchModel(dedicatedInstance.url, targetFile);
-        console.log(`[路由] 模型切换成功，等待加载...`);
-        await new Promise(r => setTimeout(r, 5000)); // 等待模型加载
-      } catch (e) {
-        console.warn(`[路由] 专用实例模型切换失败: ${e}`);
-      }
-    }
-    
-    console.log(`[路由] 使用专用${MODEL_NAMES[targetModel]}实例: ${dedicatedInstance.name}`);
-    return { instance: dedicatedInstance, needSwitch: !isMatch };
+  if (targetInstance) {
+    console.log(`[路由] 固定使用${MODEL_NAMES[targetModel]}实例: ${targetInstance.name}`);
+    return { instance: targetInstance, needSwitch: false };
   }
   
-  // 【备选】找可切换模型的实例
-  const switchableInstances = onlineInstances.filter(i => i.canSwitchModel);
-  if (switchableInstances.length > 0) {
-    const mainInstance = switchableInstances[0];
-    const currentModel = await getCurrentModel(mainInstance.url);
-    const targetFile = MODEL_FILES[targetModel];
-    const modelName = MODEL_NAMES[targetModel];
-    
-    // 使用相似度算法检查是否需要切换模型
-    const { isModelMatch } = await import('@/lib/model-matcher');
-    const targetModelName = targetModel === 'anime' ? 'anything' : 'realistic';
-    const isMatch = currentModel ? await isModelMatch(currentModel, targetModelName, 0.55) : false;
-    const needSwitch = !isMatch;
-    
-    if (needSwitch) {
-      console.log(`[路由] 切换${modelName}模型: ${currentModel} -> ${targetFile}`);
-      await switchModel(mainInstance.url, targetFile);
-      await new Promise(r => setTimeout(r, 3000));
-    } else {
-      console.log(`[路由] 使用当前${modelName}模型: ${currentModel} (相似度匹配)`);
-    }
-    
-    // 动态更新实例名称
-    mainInstance.name = `${modelName}-24G`;
-    mainInstance.specialty = targetModel;
-    return { instance: mainInstance, needSwitch };
-  }
-  
-  // 【最后备选】使用第一个在线实例
+  // 如果没有找到对应风格的实例，使用第一个在线实例
   const fallback = onlineInstances[0];
-  console.log(`[路由] 使用实例: ${fallback.name}`);
+  console.log(`[路由] 未找到${MODEL_NAMES[targetModel]}实例，使用: ${fallback.name}`);
   return { instance: fallback, needSwitch: false };
 }
 
