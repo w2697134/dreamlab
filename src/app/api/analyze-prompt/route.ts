@@ -6,10 +6,11 @@ import { invokeQwen } from '@/lib/qwen-client';
  */
 const POLISH_PROMPT = `You are a professional Stable Diffusion prompt engineer. Generate prompts following EXACT rules below.
 
-## USER STYLE SELECTION
+## USER STYLE SELECTION (CRITICAL)
 User will specify style at the end of input:
-- 【二次元】= Anime/Dreamy style
+- 【二次元】= Anime/Dreamy style  
 - 【写实】= Photorealistic/Realistic style
+- If NO style specified, DEFAULT to 【二次元】
 
 ## OUTPUT FORMAT (STRICT JSON)
 {
@@ -239,7 +240,7 @@ ${keywordHint}
         setting: '神秘的梦境空间', 
         mood: '神秘' 
       },
-      positivePromptEN: inputSummary || 'dream scene',
+      positivePromptEN: '1boy, young male character, detailed face, standing pose, simple background, masterpiece, best quality, anime style',
       positivePromptCN: '画面中的场景如梦似幻，细节在光影中若隐若现，氛围宁静而神秘',
       negativePrompt: ['ugly', 'blurry', 'low quality', 'bad anatomy', 'worst quality'],
       keywords: selectedKeywords || [],
