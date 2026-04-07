@@ -173,30 +173,23 @@ let cachedOnlineInstances: SDInstance[] | null = null;
 let cacheTime = 0;
 const CACHE_TTL = 30000; // 30秒缓存
 
-// 获取在线实例（使用配置文件中的实例）
+// 获取在线实例（直接使用配置，不检查可用性）
 async function getOnlineInstances(): Promise<SDInstance[]> {
   const now = Date.now();
   if (cachedOnlineInstances && now - cacheTime < CACHE_TTL) {
     return cachedOnlineInstances;
   }
   
-  // 从配置文件获取实例
+  // 从配置文件获取实例，直接返回，不检查可用性
   const configInstances = getSDInstances();
-  const onlineInstances: SDInstance[] = [];
-  
-  for (const inst of configInstances) {
-    if (await checkSDAvailability(inst.url)) {
-      // 转换为内部格式
-      onlineInstances.push({
-        id: inst.id,
-        name: inst.name,
-        url: inst.url,
-        vram: 24,
-        canSwitchModel: !inst.specialty, // 没有 specialty 的实例可以切换模型
-        specialty: inst.specialty as 'anime' | 'realistic' | undefined,
-      });
-    }
-  }
+  const onlineInstances: SDInstance[] = configInstances.map(inst => ({
+    id: inst.id,
+    name: inst.name,
+    url: inst.url,
+    vram: 24,
+    canSwitchModel: !inst.specialty,
+    specialty: inst.specialty as 'anime' | 'realistic' | undefined,
+  }));
   
   cachedOnlineInstances = onlineInstances;
   cacheTime = now;
