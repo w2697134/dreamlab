@@ -129,14 +129,21 @@ async function generateBatch(
   // 如果是 img2img，添加参考图片参数
   if (isImg2Img) {
     requestBody.init_images = [initImage];
-    // 根据风格调整降噪强度：写实风格需要更高的降噪强度来避免风格混合
-    requestBody.denoising_strength = artStyle === 'realistic' ? 0.75 : 0.6;
+    // 【优化】降低降噪强度，更严格遵循参考图
+    // 0.4-0.5: 更接近原图，适合严格遵循参考图
+    // 0.5-0.6: 平衡创意和参考
+    // 0.6+: 更自由发挥
+    requestBody.denoising_strength = 0.45; // 统一使用较低值，更严格遵循参考图
     requestBody.resize_mode = 0; // 拉伸模式
     
-    // 写实风格时，添加额外的反向提示词避免动漫风格渗透
-    if (artStyle === 'realistic') {
-      requestBody.negative_prompt += ', anime style, cartoon style, manga style, 2d illustration, big eyes, colorful hair, unrealistic proportions, doll-like features, chibi, kawaii, anime girl, anime boy, anime character, cel shading, toon, comic, japanese animation, anime aesthetic'
-    }
+    // 【新增】提高CFG scale，更严格遵循提示词
+    requestBody.cfg_scale = 9; // 从7提高到9
+    
+    // 【新增】添加提示词强调参考图的重要性
+    requestBody.prompt = `((reference image style)), ${prompt}`;
+    
+    // 添加反向提示词避免风格偏离
+    requestBody.negative_prompt += ', different style, changed composition, altered pose, different lighting, different colors, different background, modified structure'
   }
   
   const res = await fetch(`${sdUrl}${apiEndpoint}`, {

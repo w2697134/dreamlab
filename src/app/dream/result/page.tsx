@@ -28,6 +28,8 @@ interface TestQuestion {
   options: string[];
   category: string;
   categoryName: string;
+  reverse?: boolean;
+  affects?: Record<string, number>; // 题目影响的维度权重
 }
 
 // 评估结果
@@ -129,17 +131,36 @@ export default function DreamResultPage() {
           timestamp: new Date(data.video.timestamp),
         });
       }
-      // 读取最后一次生成图片的润色描述
+      // 读取润色描述
       console.log('[结果页面] 读取 dreamResultData:', data);
-      if (data.polishedPromptCN) {
-        console.log('[结果页面] 设置润色描述:', data.polishedPromptCN);
-        setPolishedPromptCN(data.polishedPromptCN);
-      } else {
-        console.log('[结果页面] 没有润色描述，使用 userInput:', data.userInput);
-        // 如果没有润色描述，使用 userInput 作为备选
-        if (data.userInput) {
-          setPolishedPromptCN(data.userInput);
+      
+      // 从多个来源获取润色描述
+      // 1. 首先尝试从 data.polishedPromptCN 获取（合并后的完整描述）
+      // 2. 然后尝试从所有 images 中收集并合并
+      // 3. 最后使用 userInput
+      let finalPolished: string | undefined = data.polishedPromptCN;
+      
+      if (!finalPolished && data.images?.length > 0) {
+        // 从所有图片中收集润色描述
+        const allDescriptions = data.images
+          .map((img: any) => img.polishedPromptCN)
+          .filter(Boolean);
+        const uniqueDescriptions = [...new Set(allDescriptions)];
+        if (uniqueDescriptions.length > 0) {
+          finalPolished = uniqueDescriptions.join('；');
         }
+      }
+      
+      // 如果还是没有，使用 userInput
+      if (!finalPolished) {
+        finalPolished = data.userInput;
+      }
+      
+      if (finalPolished) {
+        console.log('[结果页面] 设置润色描述:', finalPolished.substring(0, 100) + '...');
+        setPolishedPromptCN(finalPolished);
+      } else {
+        console.log('[结果页面] 没有找到润色描述');
       }
       if (data.dreamSetId) {
         setDreamSetName(`梦境 ${new Date().toLocaleDateString('zh-CN')}`);
@@ -346,10 +367,12 @@ export default function DreamResultPage() {
           dreamType: data.dreamType || '',
           keywords: data.keywords || [],
           generatedImages: getValidImages().map(img => img.imageUrl),
+          polishedPromptCN: data.polishedPromptCN || data.userInput || '', // 传入润色后的描述
         }),
       });
       
       const result = await response.json();
+      console.log('[心理测评] 加载题目:', result.questions?.map((q: any) => ({ id: q.id, category: q.category, affects: q.affects })));
       if (result.success) {
         setTestQuestions(result.questions);
         setQuestionIds(result.questions.map((q: TestQuestion) => q.id));
@@ -375,6 +398,8 @@ export default function DreamResultPage() {
     try {
       const savedData = localStorage.getItem('dreamResultData');
       const data = savedData ? JSON.parse(savedData) : {};
+      
+      console.log('[心理测评] 提交题目:', testQuestions?.map((q: any) => ({ id: q.id, category: q.category, affects: q.affects })));
       
       const response = await fetch('/api/psychology-test', {
         method: 'POST',
@@ -420,6 +445,28 @@ export default function DreamResultPage() {
 
   // 完成测试 - 测评完成后自动保存并退出
   const handleCompleteTest = async () => {
+    // 【关键】首先确保心理测评结果保存到 assessmentRecords
+    // 从 localStorage 获取 dreamSetId
+    const savedData = localStorage.getItem('dreamResultData');
+    const data = savedData ? JSON.parse(savedData) : {};
+    let dreamSetId = data.dreamSetId;
+    
+    // 如果已经有测评结果，立即保存到 assessmentRecords
+    if (assessmentResult) {
+      const records = JSON.parse(localStorage.getItem('assessmentRecords') || '{}');
+      
+      // 如果还没有 dreamSetId，生成一个临时的
+      if (!dreamSetId) {
+        dreamSetId = Date.now().toString();
+        data.dreamSetId = dreamSetId;
+        localStorage.setItem('dreamResultData', JSON.stringify(data));
+      }
+      
+      records[dreamSetId] = assessmentResult;
+      localStorage.setItem('assessmentRecords', JSON.stringify(records));
+      console.log('[完成测试] 心理测评结果已保存到 assessmentRecords:', dreamSetId);
+    }
+    
     // 如果还没有保存梦境，先自动保存
     if (!saveSuccess) {
       setIsSaving(true);
@@ -429,35 +476,44 @@ export default function DreamResultPage() {
         const dreamUser = localStorage.getItem('dreamUser');
         const validImages = getValidImages();
         
-        // 先尝试AI总结梦境
-        let autoSummary = dreamSummary;
-        if (!autoSummary && validImages.length > 0) {
-          try {
-            const prompts = validImages.map(img => img.prompt || '');
-            
-            const summaryResponse = await fetch('/api/summarize-dream', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                prompts,
-                images: validImages.map(img => img.imageUrl)
-              }),
-            });
-
-            const summaryData = await summaryResponse.json();
-            if (summaryData.success && summaryData.summary) {
-              autoSummary = summaryData.summary;
-              setDreamSummary(autoSummary);
-            }
-          } catch (summaryError) {
-            console.error('AI总结失败，继续保存:', summaryError);
+        // 【修复】优先使用润色后的描述作为 summary
+        let finalSummary = polishedPromptCN;
+        
+        if (!finalSummary && validImages.length > 0) {
+          const polishedFromImages = validImages
+            .map(img => (img as any).polishedPromptCN)
+            .filter(Boolean);
+          if (polishedFromImages.length > 0) {
+            finalSummary = [...new Set(polishedFromImages)].join('；');
           }
+        }
+        
+        if (!finalSummary) {
+          let autoSummary = dreamSummary;
+          if (!autoSummary && validImages.length > 0) {
+            try {
+              const prompts = validImages.map(img => img.prompt || '');
+              const summaryResponse = await fetch('/api/summarize-dream', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompts, images: validImages.map(img => img.imageUrl) }),
+              });
+              const summaryData = await summaryResponse.json();
+              if (summaryData.success && summaryData.summary) {
+                autoSummary = summaryData.summary;
+                setDreamSummary(autoSummary);
+              }
+            } catch (summaryError) {
+              console.error('AI总结失败:', summaryError);
+            }
+          }
+          finalSummary = autoSummary;
         }
 
         if (!token || !dreamUser) {
-          // 游客模式，保存到本地
+          // 游客模式
           const dreamSetData = {
-            id: Date.now().toString(),
+            id: dreamSetId,
             name: dreamSetName || `梦境 ${new Date().toLocaleDateString('zh-CN')}`,
             createdAt: new Date().toISOString(),
             images: validImages.map(img => ({
@@ -466,7 +522,8 @@ export default function DreamResultPage() {
               imageUrl: img.imageUrl,
               timestamp: img.timestamp instanceof Date ? img.timestamp.toISOString() : img.timestamp
             })),
-            summary: autoSummary, // 保存AI总结
+            summary: finalSummary,
+            assessmentResult: assessmentResult,
             isLocal: true,
           };
           const existingDreams = JSON.parse(localStorage.getItem('dreamLibrary') || '[]');
@@ -474,32 +531,32 @@ export default function DreamResultPage() {
           localStorage.setItem('dreamLibrary', JSON.stringify(existingDreams));
           setSaveSuccess(true);
         } else {
-          // 已登录用户，保存到服务器
-          const dreams: Array<{
-            prompt: string;
-            imageUrl: string;
-            videoUrl?: string;
-            dreamType: string;
-            artStyle: string;
-          }> = validImages.map(img => ({
+          // 已登录用户
+          const dreams = validImages.map(img => ({
             prompt: img.prompt || '梦境描述',
             imageUrl: img.imageUrl,
             dreamType: 'default',
             artStyle: 'realistic',
           }));
           
-          await fetch('/api/dream-collections', {
+          const saveResponse = await fetch('/api/dream-collections', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              title: dreamSetName || `梦境集 ${new Date().toLocaleDateString('zh-CN')}`,
-              dreams,
-              summary: autoSummary, // 保存AI总结
-            }),
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ title: dreamSetName || `梦境集 ${new Date().toLocaleDateString('zh-CN')}`, dreams, summary: finalSummary }),
           });
+          
+          if (saveResponse.ok && assessmentResult) {
+            const saveData = await saveResponse.json();
+            if (saveData.collection?.id) {
+              // 更新 assessmentRecords 使用服务器返回的 ID
+              const records = JSON.parse(localStorage.getItem('assessmentRecords') || '{}');
+              records[saveData.collection.id] = assessmentResult;
+              // 删除临时的 ID
+              delete records[dreamSetId];
+              localStorage.setItem('assessmentRecords', JSON.stringify(records));
+            }
+          }
+          
           setSaveSuccess(true);
         }
         
@@ -510,6 +567,9 @@ export default function DreamResultPage() {
       } finally {
         setIsSaving(false);
       }
+    } else if (assessmentResult) {
+      // 已经保存过梦境，但确保 assessmentRecords 使用正确的 ID
+      showToast('评估结果已保存', 'success');
     }
     
     // 重置测评状态并跳转到梦境库
@@ -849,18 +909,6 @@ export default function DreamResultPage() {
         {/* 评估结果 */}
         {assessmentResult && (
           <div className={`mt-6 p-6 rounded-2xl ${mode === 'dark' ? 'bg-gradient-to-br from-sky-500/10 to-blue-500/10' : 'bg-gradient-to-br from-sky-50 to-blue-50'}`}>
-            {/* 梦境总结 - 直接显示润色描述 */}
-            {polishedPromptCN && (
-              <div className={`mb-6 p-4 rounded-xl ${mode === 'dark' ? 'bg-blue-500/10' : 'bg-blue-50/80'}`}>
-                <h3 className={`text-sm font-medium mb-2 ${mode === 'dark' ? 'text-blue-300' : 'text-blue-600'}`}>
-                  📝 梦境总结
-                </h3>
-                <p className={`text-sm leading-relaxed ${mode === 'dark' ? 'text-white/80' : 'text-gray-700'}`}>
-                  {polishedPromptCN}
-                </p>
-              </div>
-            )}
-
             <div className="text-center mb-6">
               <h2 className={`text-xl font-medium ${mode === 'dark' ? 'text-white' : 'text-gray-800'}`}>
                 压力评估报告

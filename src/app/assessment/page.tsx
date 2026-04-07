@@ -877,15 +877,11 @@ export default function AssessmentPage() {
                     strokeLinecap="round"
                   />
                 </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className={`text-4xl font-bold ${getMentalHealthColor(getMentalHealthScore()).text}`}>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className={`text-4xl font-bold ${mode === 'dark' ? 'text-white' : 'text-gray-800'}`}>
                     {getMentalHealthScore()}
                   </span>
-                  <span className={`text-sm ${mode === 'dark' ? 'text-white/60' : 'text-gray-500'}`}>/100</span>
                 </div>
-              </div>
-              <div className={`text-xl font-medium ${getMentalHealthColor(getMentalHealthScore()).text}`}>
-                {getMentalHealthLabel(getMentalHealthScore())}
               </div>
               <p className={`text-sm mt-2 ${mode === 'dark' ? 'text-white/70' : 'text-gray-600'}`}>
                 {getMentalHealthDescription(getMentalHealthScore())}

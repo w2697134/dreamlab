@@ -118,9 +118,35 @@ const [collections, setCollections] = useState<DreamCollection[]>([]);
   const fetchCollections = async () => {
     const token = getToken();
     
+    // 【修复】同时加载本地梦境（无论是否登录）
+    const localDreams = localStorage.getItem('dreamLibrary');
+    let localCollections: DreamCollection[] = [];
+    if (localDreams) {
+      try {
+        const parsed = JSON.parse(localDreams);
+        localCollections = parsed.map((item: any) => ({
+          id: item.id,
+          title: item.name,
+          cover_url: item.images?.[0]?.imageUrl,
+          image_count: item.images?.length || 0,
+          created_at: item.createdAt,
+          dreams: item.images?.map((img: any) => ({
+            id: img.id,
+            image_url: img.imageUrl,
+            prompt: img.prompt,
+            created_at: img.timestamp
+          })) || [],
+          isLocal: true,
+        }));
+        console.log('[梦境库] 加载本地梦境:', localCollections.length);
+      } catch (e) {
+        console.error('[梦境库] 解析本地数据失败:', e);
+      }
+    }
+    
     if (!token) {
-      console.log('[梦境库] 未登录，不显示数据');
-      setCollections([]);
+      console.log('[梦境库] 未登录，只显示本地数据');
+      setCollections(localCollections);
       setAuthError(true);
       return;
     }
@@ -132,7 +158,7 @@ const [collections, setCollections] = useState<DreamCollection[]>([]);
       if (response.status === 401) {
         console.log('[梦境库] 401未授权');
         setAuthError(true);
-        setCollections([]);
+        setCollections(localCollections); // 显示本地数据
         return;
       }
 
@@ -140,18 +166,18 @@ const [collections, setCollections] = useState<DreamCollection[]>([]);
 
       if (!response.ok) {
         console.log('[梦境库] 响应失败:', response.status);
-        setCollections([]);
+        setCollections(localCollections); // 显示本地数据
         return;
       }
 
       const data = await response.json();
       console.log('[梦境库] 获取到的云端数据:', data);
-      // 只显示云端数据（每个账号独立）
+      // 合并云端数据和本地数据
       const cloudCollections = data.collections || [];
-      setCollections(cloudCollections);
+      setCollections([...localCollections, ...cloudCollections]);
     } catch (error) {
       console.error('获取梦境集失败:', error);
-      setCollections([]);
+      setCollections(localCollections); // 显示本地数据
     }
   };
 
@@ -333,13 +359,30 @@ const [collections, setCollections] = useState<DreamCollection[]>([]);
   };
 
   // 获取评估状态
-  const getAssessmentStatus = (collectionId: string) => {
-    return assessmentRecords[collectionId] || null;
+  const getAssessmentStatus = (collection: DreamCollection) => {
+    // 优先从 assessmentRecords 获取
+    if (assessmentRecords[collection.id]) {
+      return assessmentRecords[collection.id];
+    }
+    // 本地梦境可能直接存储在对象中
+    const localData = localStorage.getItem('dreamLibrary');
+    if (localData) {
+      try {
+        const parsed = JSON.parse(localData);
+        const localItem = parsed.find((item: any) => item.id === collection.id);
+        if (localItem?.assessmentResult) {
+          return localItem.assessmentResult;
+        }
+      } catch (e) {
+        console.error('[梦境库] 解析本地数据失败:', e);
+      }
+    }
+    return null;
   };
 
   // 获取评估按钮文本
-  const getAssessmentButton = (collectionId: string) => {
-    const record = getAssessmentStatus(collectionId);
+  const getAssessmentButton = (collection: DreamCollection) => {
+    const record = getAssessmentStatus(collection);
     if (record) {
       return { text: `查看评估 (${record.stressLabel})`, isAssessed: true };
     }
@@ -539,7 +582,7 @@ const [collections, setCollections] = useState<DreamCollection[]>([]);
                           )}
                           {/* 评估状态标签 */}
                           {(() => {
-                            const status = getAssessmentStatus(collection.id);
+                            const status = getAssessmentStatus(collection);
                             if (status) {
                               const labelClass = status.stressLevel > 70 
                                 ? 'bg-red-500/20 text-red-300' 
@@ -675,14 +718,14 @@ const [collections, setCollections] = useState<DreamCollection[]>([]);
                       {/* 梦境集操作 */}
                       <div className={`px-4 pb-4 flex gap-2 ${mode === 'dark' ? 'border-t border-white/5' : 'border-t border-sky-50'}`}>
                         {(() => {
-                          const btnInfo = getAssessmentButton(collection.id);
+                          const btnInfo = getAssessmentButton(collection);
                           return (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 if (btnInfo.isAssessed) {
                                   // 已评估，查看结果
-                                  const record = getAssessmentStatus(collection.id);
+                                  const record = getAssessmentStatus(collection);
                                   if (record) {
                                     const assessmentData: any = {
                                       source: 'collection',

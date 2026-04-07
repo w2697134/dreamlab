@@ -121,6 +121,7 @@ interface SelectedImage {
   lightMood: string;
   perspective: string;
   atmosphere: string;
+  polishedPromptCN?: string; // AI润色后的中文描述
 }
 
 interface GeneratedImage {
@@ -1332,12 +1333,19 @@ export default function DreamPage() {
       
       console.log('[生成] 场景关联提示词:', promptWithStyle);
       
-      const requestData = {
+      const requestData: any = {
         polishedPrompt: promptWithStyle,
         count: 2,
         artStyle: suggestedModel || artStyle,
         negativePrompt: negativePrompt, // AI分析的反向提示词
       };
+      
+      // 如果有上传的参考图，传递给后端进行 img2img 生成
+      if (uploadedImages.length > 0) {
+        requestData.uploadedImages = uploadedImages.map(img => img.dataUrl);
+        requestData.isImg2Img = true;
+        console.log('[生成] 使用图生图模式，参考图数量:', uploadedImages.length);
+      }
       
       abortControllerRef.current = new AbortController();
       const token = localStorage.getItem('dreamToken');
@@ -1730,6 +1738,7 @@ export default function DreamPage() {
       lightMood: img.lightMood,
       perspective: img.perspective,
       atmosphere: img.atmosphere,
+      polishedPromptCN: img.polishedPromptCN, // 复制润色后的中文描述
     }));
 
     // 设置上下文（保存当前提示词用于场景关联）
@@ -1775,6 +1784,7 @@ export default function DreamPage() {
       lightMood: generatedImage.lightMood,
       perspective: generatedImage.perspective,
       atmosphere: generatedImage.atmosphere,
+      polishedPromptCN: generatedImage.polishedPromptCN, // 复制润色后的中文描述
     };
 
     // 保存当前提示词用于场景关联
@@ -2300,14 +2310,32 @@ export default function DreamPage() {
     // 准备结果数据
     const dreamSetId = Date.now().toString();
     
-    // 【修复】直接使用 ref 中的值，避免 usePersistentState 的防抖延迟
-    // 优先级：ref > state > currentPrompt
-    const finalPolishedPromptCN = polishedPromptCNRef.current || lastPolishedPromptCN || currentPrompt;
+    // 【修复】收集所有图片的润色描述，合并成完整的梦境描述
+    // 1. 从 selectedImages 收集所有 polishedPromptCN
+    // 2. 如果没有，使用最后一次的润色描述
+    const allPolishedDescriptions = selectedImages
+      .map(img => (img as any).polishedPromptCN)
+      .filter(Boolean) as string[];
+    
+    // 去重并合并所有描述
+    const uniqueDescriptions = [...new Set(allPolishedDescriptions)];
+    let finalPolishedPromptCN: string;
+    
+    if (uniqueDescriptions.length > 0) {
+      // 如果有多张图片的描述，合并它们
+      finalPolishedPromptCN = uniqueDescriptions.join('；');
+    } else {
+      // 如果没有图片描述，使用备选
+      finalPolishedPromptCN = 
+        polishedPromptCNRef.current || 
+        lastPolishedPromptCN || 
+        currentPrompt;
+    }
+    
     console.log('[完成] 保存润色描述:', {
-      ref: polishedPromptCNRef.current,
-      state: lastPolishedPromptCN,
-      current: currentPrompt,
-      final: finalPolishedPromptCN
+      allDescriptions: allPolishedDescriptions,
+      uniqueCount: uniqueDescriptions.length,
+      final: finalPolishedPromptCN?.substring(0, 100) + '...'
     });
     
     const resultData = {

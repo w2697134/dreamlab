@@ -1241,13 +1241,17 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
               width: 32,
               height: 32,
               borderRadius: 8,
-              background: 'linear-gradient(135deg, #a855f7, #3b82f6)',
+              background: mode === 'dark' 
+                ? 'linear-gradient(135deg, #a855f7, #3b82f6)' // 夜晚：紫蓝渐变
+                : 'linear-gradient(135deg, #fbbf24, #f59e0b)', // 白天：黄橙渐变
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0
             }}>
-              <span style={{ color: 'white', fontSize: 18 }}>🌙</span>
+              <span style={{ color: 'white', fontSize: 18 }}>
+                {mode === 'dark' ? '🌙' : '☀️'}
+              </span>
             </div>
             {!collapsed && (
               <span style={{

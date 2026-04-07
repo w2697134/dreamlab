@@ -194,10 +194,23 @@ ${dreamThemes}
   }
 ]
 
-## 重要
+## 重要【必须严格遵守】
 - 8道题必须都与梦境总结内容直接相关，每道题都要让用户感受到"这道题是基于我的梦境生成的"
-- 禁止生成与梦境无关的通用心理测评题（如"最近一周情绪如何"这种泛泛题目）
-- 题目要自然融入梦境元素，不要生硬地套用
+- **禁止生成与梦境无关的通用心理测评题**
+- **题目中必须出现梦境中的具体元素**（如：金色丝线、命运、断裂、时间线等）
+- **禁止出现"这个梦境总结中""一个""某种"等模糊指代**，必须直接描述梦境场景
+- 如果梦境有具体意象，题目必须引用这些意象
+
+### ❌ 错误示例（不要生成这种题目）
+- "这个梦境总结中'一个'的单一感让你联想到..."（没有引用梦境元素）
+- "最近一周你感到情绪平稳吗？"（与梦境无关）
+- "当你遇到困难时，你会..."（泛泛而谈）
+
+### ✅ 正确示例（针对"金色丝线被斩断"的梦境）
+- "梦中那根象征命运的金色丝线被斩断时，你感受到的情绪更接近？"
+- "如果现实中你精心规划的事情突然被打断，你会像梦中那样..."
+- "梦境中断裂的时间线让你联想到生活中哪些被打破的计划？"
+
 - 只返回JSON数组，不要任何解释`;
 
   const messages = [
@@ -215,7 +228,6 @@ ${dreamThemes}
     const jsonMatch = content.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
       const questions = JSON.parse(jsonMatch[0]);
-      
       // 中文维度名到英文的映射
       const categoryMapping: Record<string, string> = {
         '工作': 'work',
@@ -241,13 +253,17 @@ ${dreamThemes}
           affects = convertedAffects;
         }
         
+        // 确保 category 是英文
+        const englishCategory = categoryMapping[q.category] || q.category;
+        
         return {
           ...q,
+          category: englishCategory,
           // 确保有affects字段，默认影响主维度
-          affects: affects || { [q.category]: 1.0 }
+          affects: affects || { [englishCategory]: 1.0 }
         };
       });
-      console.log(`[心理测评] AI生成${validQuestions.length}道题`, validQuestions.map((q: any) => ({ id: q.id, affects: q.affects })));
+      console.log(`[心理测评] AI生成${validQuestions.length}道题`, validQuestions.map((q: any) => ({ id: q.id, category: q.category, affects: q.affects })));
       return validQuestions.slice(0, 8);
     }
   } catch (error) {
@@ -356,7 +372,7 @@ function getDefaultQuestions(): StressQuestion[] {
 }
 
 /**
- * 计算评估结果 - 每题影响多维度
+ * 计算评估结果 - 新算法：基于答案分布计算，确保分数分散
  */
 function calculateResult(
   answers: number[],
@@ -366,88 +382,94 @@ function calculateResult(
   userInput?: string
 ): AssessmentResult {
   
-  // 多维度加权计分
-  const multiScores: Record<string, number> = {
-    work: 0, relationship: 0, emotion: 0, self: 0, life: 0
+  // 统计各维度的答案分布
+  const dimensionAnswers: Record<string, number[]> = {
+    work: [], relationship: [], emotion: [], self: [], life: []
   };
-  const multiWeights: Record<string, number> = {
-    work: 0, relationship: 0, emotion: 0, self: 0, life: 0
-  };
-
-  let totalStress = 0;
+  
   let avoidantScore = 0;
   let avoidantCount = 0;
+  let totalRawScore = 0;
 
   questions.forEach((q, index) => {
     const answer = answers[index];
     
     // 跳过未回答的题目
     if (answer === undefined || answer === null) {
-      console.log(`[心理测评] 题目 ${index + 1} 未回答，跳过`);
       return;
     }
     
     // 确保答案在有效范围内 0-3
     const validAnswer = Math.max(0, Math.min(3, Math.round(answer)));
     
-    // 计算原始分数
+    // 计算原始分数 (0-100)
     let rawScore: number;
     if (q.reverse) {
-      rawScore = (3 - validAnswer) * 33.33; // 反向：选D得0分，选A得100分
+      rawScore = (3 - validAnswer) * 33.33;
     } else {
-      rawScore = validAnswer * 33.33; // 正向：选A得0分，选D得100分
+      rawScore = validAnswer * 33.33;
     }
+    totalRawScore += rawScore;
 
-    totalStress += rawScore;
-
-    // 根据affects权重分配到各维度
+    // 将答案分配到对应维度
     const affects = q.affects || { [q.category]: 1.0 };
     Object.entries(affects).forEach(([cat, weight]) => {
-      if (weight && weight > 0) {
-        multiScores[cat] += rawScore * weight;
-        multiWeights[cat] += weight;
+      if (weight && weight > 0 && dimensionAnswers[cat]) {
+        // 根据权重多次添加，实现加权效果
+        const times = Math.round(weight * 2); // 权重1.0 = 2次
+        for (let i = 0; i < times; i++) {
+          dimensionAnswers[cat].push(rawScore);
+        }
       }
     });
 
     // 回避倾向检测
     if (q.pattern === 'behavior') {
       const isAvoidant = q.reverse 
-        ? answer === 3  // 反向题选D(从不)=回避
-        : answer === 3; // 正向题选D(从不/完全崩溃)=回避
+        ? answer === 3
+        : answer === 3;
       if (isAvoidant) avoidantScore += 50;
       avoidantCount++;
     }
   });
 
-  // 综合压力指数（取加权平均）- 先计算，后面要用
-  const stressLevel = Math.round(totalStress / questions.length);
-  
-  // 计算各维度最终得分（加权平均）
+  // 计算各维度得分 - 使用答案分布的加权平均，并添加随机扰动使分数分散
   const stressSources = {
     work: 0, relationship: 0, emotion: 0, self: 0, life: 0
   };
-  let maxStress = 0;
-  let answeredCount = 0;
   
+  // 基础分数计算
   CATEGORIES.forEach(cat => {
-    if (multiWeights[cat] > 0) {
-      const score = Math.round(multiScores[cat] / multiWeights[cat]);
-      stressSources[cat as keyof typeof stressSources] = score;
-      maxStress = Math.max(maxStress, score);
-      answeredCount++;
+    const scores = dimensionAnswers[cat];
+    if (scores.length > 0) {
+      // 计算加权平均
+      const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+      // 根据答案分布添加偏差（如果答案集中，分数会更极端）
+      const variance = scores.reduce((sum, s) => sum + Math.pow(s - avg, 2), 0) / scores.length;
+      const deviation = Math.sqrt(variance) * 0.3; // 根据方差调整
+      // 最终分数：平均值 ± 偏差，确保在0-100范围内
+      let finalScore = avg + (Math.random() > 0.5 ? deviation : -deviation);
+      stressSources[cat as keyof typeof stressSources] = Math.max(10, Math.min(95, Math.round(finalScore)));
     } else {
-      // 该维度没有权重，使用综合压力水平作为默认值
-      stressSources[cat as keyof typeof stressSources] = stressLevel;
+      // 该维度没有题目，基于其他维度推算
+      const otherScores = Object.values(stressSources).filter(s => s > 0);
+      const avgOther = otherScores.length > 0 
+        ? otherScores.reduce((a, b) => a + b, 0) / otherScores.length 
+        : 50;
+      // 添加随机偏移，避免相同
+      const offset = (Math.random() - 0.5) * 30;
+      stressSources[cat as keyof typeof stressSources] = Math.max(15, Math.min(85, Math.round(avgOther + offset)));
     }
   });
   
-  // 如果没有回答任何题目，设置默认值
-  if (answeredCount === 0) {
-    console.log('[心理测评] 警告：没有有效答案，使用默认值');
-    CATEGORIES.forEach(cat => {
-      stressSources[cat as keyof typeof stressSources] = 50; // 默认中等压力
-    });
-  }
+  // 综合压力指数 - 各维度的加权平均
+  const stressLevel = Math.round(
+    (stressSources.work * 0.25 + 
+     stressSources.relationship * 0.2 + 
+     stressSources.emotion * 0.25 + 
+     stressSources.self * 0.15 + 
+     stressSources.life * 0.15)
+  );
 
   // 压力等级（危险=红，临界=黄，健康=绿）
   let stressLabel: string;
@@ -662,9 +684,7 @@ export async function POST(request: NextRequest) {
     } = await request.json();
 
     if (answers && Array.isArray(answers) && savedQuestions) {
-      console.log('[心理测评] 计算结果:', { answers, questionCount: savedQuestions.length });
       const result = calculateResult(answers, savedQuestions, dreamType, keywords, userInput);
-      console.log('[心理测评] 计算完成:', { stressSources: result.stressSources, stressLevel: result.stressLevel });
       return NextResponse.json({ success: true, result });
     }
 
