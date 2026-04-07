@@ -11,10 +11,19 @@ The input may contain multiple sentences from previous interactions. You MUST:
 1. **Resolve pronouns (指代消解)**: If current input contains pronouns like "她"(she/her), "他"(he/him), "它"(it), "我们"(we/us), "他们"(they/them), find WHO they refer to in the context
 2. **Maintain continuity (保持连续性)**: Characters, objects, or settings mentioned in previous inputs should be recognized and maintained
 3. **Focus on CURRENT input**: While understanding context, the main subject and action should come from the CURRENT input
+4. **MULTIPLE CHARACTERS HANDLING (多人物处理 - CRITICAL)**: 
+   - If context mentions one character and current input mentions ANOTHER character (different gender, name, or description), they are TWO SEPARATE people
+   - NEVER merge multiple characters into one
+   - If scene has multiple people, describe EACH person clearly in the prompt
+   - Example: Context has "a beautiful woman", current has "a handsome man" → scene has BOTH woman AND man, not a merged person
 
 ### Example - Context Resolution:
 Context: "雷电将军" + Current: "我和她结婚了"
 → Resolved: "雷电将军" is "她", so the scene is "我和雷电将军结婚"
+
+### Example - Multiple Characters:
+Context: "美丽的女孩站在花园里" + Current: "一个英俊的男人走向她"
+→ Scene has TWO people: the girl (from context) AND the man (from current input), interacting together
 
 ## Analysis Steps (MUST FOLLOW)
 
