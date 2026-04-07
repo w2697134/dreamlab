@@ -839,6 +839,39 @@ export function setPreferredInstance(id: string): SDInstance[] {
 // 执行初始化校验
 initConfigValidation();
 
+// ==================== 定期检查和自动切换模型 ====================
+
+// 每5分钟检查一次实例模型是否正确
+const MODEL_CHECK_INTERVAL = 5 * 60 * 1000;
+
+async function checkAndSwitchModels() {
+  console.log('[SD定时检查] 开始检查实例模型...');
+  
+  for (const instance of sdInstances) {
+    if (!instance.specialty || !instance.fixedModelFile) continue;
+    
+    try {
+      const isMatch = await verifyInstanceModel(instance);
+      if (!isMatch) {
+        console.log(`[SD定时检查] ${instance.name} 模型不匹配，自动切换...`);
+        await switchSDModel(instance.url, instance.fixedModelFile);
+      } else {
+        console.log(`[SD定时检查] ${instance.name} 模型正常`);
+      }
+    } catch (e) {
+      console.error(`[SD定时检查] ${instance.name} 检查失败:`, e);
+    }
+  }
+}
+
+// 启动定时检查（仅在服务器端）
+if (typeof window === 'undefined') {
+  setInterval(checkAndSwitchModels, MODEL_CHECK_INTERVAL);
+  console.log('[SD定时检查] 已启动，每5分钟检查一次');
+  // 立即执行一次检查
+  checkAndSwitchModels();
+}
+
 // ==================== SD 中断生成 ====================
 
 /**
