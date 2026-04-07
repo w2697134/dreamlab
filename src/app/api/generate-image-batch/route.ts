@@ -117,7 +117,7 @@ async function generateBatch(
   const requestBody: any = {
     prompt,
     negative_prompt: negativePromptStr,
-    steps: 40,
+    steps: 30,
     width: 768,
     height: 512,
     cfg_scale: 7,
