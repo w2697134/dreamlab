@@ -1586,6 +1586,7 @@ export default function DreamPage() {
           atmosphere: 'mysterious',
           interpretation: '',
           isInterpreting: true,
+          polishedPromptCN: polishedPromptCNRef.current || currentPrompt, // 保存润色后的中文描述
         }));
         setGeneratedImages(newImages);
         
