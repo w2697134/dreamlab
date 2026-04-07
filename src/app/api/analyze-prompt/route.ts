@@ -169,19 +169,19 @@ export async function POST(request: NextRequest) {
     
     console.log('[AI] 输入:', inputSummary.substring(0, 50));
 
-    const userContent = `## 梦境上下文（已润色的历史描述）
-"${historyContexts ? historyContexts.slice(-3).join('。') : '（无上下文）'}"
+    // 构建上文（历史润色描述）和下文（当前输入）
+    const previousContext = historyContexts ? historyContexts.slice(-3).join('。') : '';
+    
+    const userContent = `上文："${previousContext || '（无上文）'}"
+下文："${inputSummary || '（无下文）'}"
 
-## 当前输入（需要与上下文一起重新润色）
-"${inputSummary || '（无文字描述）'}"
+请完成以下任务（一次完成）：
+1. 先润色下文，理解其句子成分和画面内容
+2. 将润色后的下文与上文结合，生成一个连贯的完整场景描述
+3. 如果下文提到的人物/物体在上文出现过，保持连续性
+4. 如果下文提到的是新的人物/物体（不同性别、名字、描述），将其加入场景，不要与上文人物合并
 
-## 用户选择的标签
-${keywordSummary || '（无标签）'}
-
-## 任务说明
-将【上下文】和【当前输入】合并，重新润色成一个完整的梦境描述。不要简单拼接，而是理解整体情节后生成连贯的画面描述。
-
-请分析句子成分，结合上下文理解指代关系（如"她"/"他"/"它"指谁），生成正向和反向提示词。必须包含中文描述（positivePromptCN）。`;
+最终输出要求：生成正向和反向提示词，必须包含中文描述（positivePromptCN）。`;
 
     const messages = [
       { role: 'system' as const, content: POLISH_PROMPT },
