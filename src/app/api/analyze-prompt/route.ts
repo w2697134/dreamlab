@@ -96,9 +96,9 @@ User will specify style at the end of input:
 ## UNIVERSAL RULES
 
 ### Word Count (STRICT)
-- EXACTLY 60-90 English words for positivePromptEN
+- MINIMUM 40 English words for positivePromptEN
+- NEVER less than 30 words
 - NEVER exceed 100 words
-- ABSOLUTELY NO 200+ word spam
 
 ### Fixed Order (MUST FOLLOW)
 1. **Prefix** - style-specific quality tags with weight
