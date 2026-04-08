@@ -335,13 +335,16 @@ ${keywordHint}
       analysisResult.positivePromptCN = inputSummary || '梦境场景';
     }
 
+    // 默认反向提示词
+    const defaultNegativePrompt = ['ugly', 'blurry', 'low quality', 'bad anatomy', 'worst quality'];
+
     // 确保反向提示词至少有5个
-    let negativePrompt = analysisResult.negativePrompt || fallback.negativePrompt;
+    let negativePrompt = analysisResult.negativePrompt || defaultNegativePrompt;
     if (!Array.isArray(negativePrompt)) {
-      negativePrompt = fallback.negativePrompt;
+      negativePrompt = defaultNegativePrompt;
     }
     if (negativePrompt.length < 5) {
-      negativePrompt = [...negativePrompt, ...fallback.negativePrompt.slice(0, 5 - negativePrompt.length)];
+      negativePrompt = [...negativePrompt, ...defaultNegativePrompt.slice(0, 5 - negativePrompt.length)];
     }
 
     // 选择模型：优先使用用户选择的艺术风格
