@@ -258,6 +258,12 @@ ${keywordHint}
       polishAttempt++;
       console.log(`[AI分析] 第${polishAttempt}次润色尝试...`);
       
+      // 每次重试间隔2秒
+      if (polishAttempt > 1) {
+        console.log(`[AI分析] 等待2秒后重试...`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+      
       const messages = [
         { role: 'system' as const, content: POLISH_PROMPT },
         { role: 'user' as const, content: userContent }
