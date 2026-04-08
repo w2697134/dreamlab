@@ -282,6 +282,13 @@ ${keywordHint}
     
     const analysisResult = parseAIResult(aiResult, fallback);
     console.log('[AI] 解析: 人物=' + (analysisResult.analysis?.subject?.substring(0, 20) || '无') + ', 模型=' + analysisResult.model);
+    
+    // 【日志】输出润色前后对比
+    console.log('[润色对比] ==========================================');
+    console.log('[润色前] 用户输入:', inputSummary);
+    console.log('[润色后] 英文提示词:', analysisResult.positivePromptEN?.substring(0, 100) + '...');
+    console.log('[润色后] 中文描述:', analysisResult.positivePromptCN?.substring(0, 100) + '...');
+    console.log('[润色对比] ==========================================');
 
     // 【修复】确保有中文描述，优先使用用户输入，而不是固定默认描述
     if (!analysisResult.positivePromptCN) {
