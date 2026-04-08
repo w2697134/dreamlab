@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { LLMClient, Config, HeaderUtils } from 'coze-coding-dev-sdk';
+import { invokeQwen } from '@/lib/qwen-client';
 import fs from 'fs';
 import path from 'path';
 
@@ -87,16 +87,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '缺少图片' }, { status: 400 });
     }
 
-    const customHeaders = HeaderUtils.extractForwardHeaders(request.headers);
-    const config = new Config();
-    const client = new LLMClient(config, customHeaders);
-
-    // 保存图片（如果需要）
-    let savedImageUrl = imageUrl;
-    if (saveImage) {
-      savedImageUrl = await saveImageToStorage(imageUrl);
-    }
-
+    // 使用千问进行图片分析
     const messages = [
       {
         role: 'user' as const,
@@ -136,10 +127,19 @@ export async function POST(request: NextRequest) {
       }
     ];
 
-    const response = await client.invoke(messages, {
-      model: 'qwen3.5 9b',
-      temperature: 0.7
-    });
+    let response;
+    try {
+      response = await invokeQwen(messages, {
+        model: 'qwen3.5 9b',
+        temperature: 0.7
+      });
+    } catch (error) {
+      console.error('[图片分析] 千问调用失败:', error);
+      return NextResponse.json({
+        success: false,
+        error: 'AI分析服务暂时不可用'
+      }, { status: 503 });
+    }
 
     // 尝试解析 JSON
     let analysis: MoodAnalysis;
