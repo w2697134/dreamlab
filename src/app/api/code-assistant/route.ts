@@ -129,7 +129,6 @@ function filterJsonFromResponse(response: string): string {
 export async function POST(request: NextRequest) {
   try {
     const { messages, stream, enableCodeActions } = await request.json();
-    const customHeaders = HeaderUtils.extractForwardHeaders(request.headers);
 
     // 使用千问进行代码助手对话
 
