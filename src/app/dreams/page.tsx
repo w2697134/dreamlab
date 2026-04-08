@@ -182,9 +182,11 @@ const [collections, setCollections] = useState<DreamCollection[]>([]);
   };
 
   const handleDeleteCollection = async (collectionId: string) => {
-    // 【修复】支持删除本地梦境（未登录用户）- 只有未登录用户才走本地删除逻辑
-    const token = getToken();
-    if (!token) {
+    // 【修复】根据ID格式判断是本地数据还是云端数据（纯数字ID是本地数据）
+    const isLocalId = /^\d+$/.test(collectionId);
+    
+    if (isLocalId) {
+      // 本地数据直接从 localStorage 删除
       const localDreams = localStorage.getItem('dreamLibrary');
       if (localDreams) {
         try {
@@ -211,7 +213,7 @@ const [collections, setCollections] = useState<DreamCollection[]>([]);
         }
       }
       
-      showToast('请先登录', 'warning');
+      showToast('删除失败', 'error');
       setShowDeleteConfirm(false);
       setDeleteTarget(null);
       return;
@@ -302,9 +304,67 @@ const [collections, setCollections] = useState<DreamCollection[]>([]);
   };
 
   const handleDeleteDream = async (dreamId: string, collectionId: string) => {
+    // 【修复】支持删除本地梦境（时间戳ID格式的是本地数据）
+    const isLocalId = /^\d+$/.test(collectionId); // 纯数字ID是本地数据
+    
+    if (isLocalId) {
+      // 本地数据直接从 localStorage 删除
+      const localDreams = localStorage.getItem('dreamLibrary');
+      if (localDreams) {
+        try {
+          const parsed = JSON.parse(localDreams);
+          // 找到对应的梦境集并删除其中的指定图片
+          const updated = parsed.map((item: any) => {
+            if (item.id === collectionId) {
+              return {
+                ...item,
+                images: (item.images || []).filter((img: any) => img.id !== dreamId)
+              };
+            }
+            return item;
+          }).filter((item: any) => (item.images?.length || 0) > 0); // 移除空集
+          
+          localStorage.setItem('dreamLibrary', JSON.stringify(updated));
+          
+          // 更新本地状态
+          setCollections(prev => prev.map(c => {
+            if (c.id === collectionId) {
+              const newDreams = c.dreams.filter(d => d.id !== dreamId);
+              return {
+                ...c,
+                dreams: newDreams,
+                image_count: newDreams.length,
+                cover_url: newDreams[0]?.image_url || c.cover_url,
+              };
+            }
+            return c;
+          }).filter(c => c.image_count > 0));
+          
+          // 清除评估缓存
+          const records = JSON.parse(localStorage.getItem('assessmentRecords') || '{}');
+          if (records[collectionId]) {
+            delete records[collectionId];
+            localStorage.setItem('assessmentRecords', JSON.stringify(records));
+            setAssessmentRecords(records);
+          }
+          
+          showToast('梦境已删除', 'success');
+        } catch (e) {
+          console.error('[梦境库] 删除本地梦境失败:', e);
+          showToast('删除失败', 'error');
+        }
+      }
+      setShowDeleteConfirm(false);
+      setDeleteTarget(null);
+      return;
+    }
+    
+    // 云端删除（UUID格式ID）
     const token = getToken();
     if (!token) {
       showToast('请先登录', 'warning');
+      setShowDeleteConfirm(false);
+      setDeleteTarget(null);
       return;
     }
 
