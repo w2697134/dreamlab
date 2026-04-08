@@ -260,7 +260,8 @@ ${keywordHint}
     console.log(`[AI分析] 使用${provider}完成`);
     // AI原始返回日志已精简
 
-    // 【修复】fallback 使用用户输入的内容，而不是固定描述
+    // 【修复】fallback 使用用户输入的内容，但英文提示词需要翻译
+    // 如果AI返回解析失败，使用用户原文+通用英文提示词
     const fallback = {
       analysis: { 
         subject: inputSummary || '梦境场景', 
@@ -268,7 +269,10 @@ ${keywordHint}
         setting: '神秘的梦境空间', 
         mood: '神秘' 
       },
-      positivePromptEN: inputSummary || 'dream scene, masterpiece, best quality',
+      // 【关键】英文提示词不能是中文，使用通用英文描述+用户原文
+      positivePromptEN: inputSummary 
+        ? `(${inputSummary}), masterpiece, best quality, detailed, artistic composition, beautiful lighting`
+        : 'dream scene, masterpiece, best quality, detailed, artistic composition',
       positivePromptCN: inputSummary || '梦境场景',
       negativePrompt: ['ugly', 'blurry', 'low quality', 'bad anatomy', 'worst quality'],
       keywords: selectedKeywords || [],
