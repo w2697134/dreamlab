@@ -25,7 +25,7 @@ export async function invokeLLM(
     enableFailover?: boolean;
   }
 ): Promise<LLMResponse> {
-  const maxRetries = 3;
+  const maxRetries = 20;
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
