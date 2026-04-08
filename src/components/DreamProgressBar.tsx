@@ -804,24 +804,7 @@ export default function DreamProgressBar({
             />
           ))}
 
-          {/* 进度前端光点 - 紧贴彩色进度条 */}
-          {/* 只在进度大于5%时显示，避免在进度条开始处显示 */}
-          {displayProgress > 5 && (
-            <div
-              className="absolute top-1/2 w-5 h-5 rounded-full"
-              style={{
-                left: `${Math.min(displayProgress, 99)}%`,
-                transform: 'translate(-50%, -50%)', // 居中于进度条末端
-                marginLeft: '0px',
-                background: 'radial-gradient(circle, #fff 0%, rgba(255,255,255,0.8) 40%, rgba(168,85,247,0.5) 100%)',
-                boxShadow: `
-                  0 0 10px rgba(255, 255, 255, 0.8),
-                  0 0 20px rgba(168, 85, 247, 0.6),
-                  0 0 30px rgba(168, 85, 247, 0.4)
-                `,
-              }}
-            />
-          )}
+
         </div>
 
         {/* 刻度标记 */}
