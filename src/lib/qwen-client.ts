@@ -7,8 +7,8 @@
 import fs from 'fs';
 import path from 'path';
 
-const QWEN_BASE_URL = 'http://lmstudio.vip.cpolar.cn/v1';  // 千问服务地址
-const DEFAULT_MODEL = 'qwen3.5 9b';
+const QWEN_BASE_URL = 'https://lmstudio.vip.cpolar.cn/v1';  // 千问服务地址
+const DEFAULT_MODEL = 'qwen3.5-9b';  // 模型名称要和千问服务一致
 const KIMI_API_KEY = process.env.KIMI_API_KEY;
 const KIMI_BASE_URL = 'https://api.moonshot.cn/v1';
 const CONFIG_FILE = path.join(process.cwd(), 'data', 'llm-config.json');

@@ -143,7 +143,7 @@ const SD_INSTANCES_CONFIG: Omit<SDInstance, 'isAvailable'>[] = [
   {
     id: 'anime',
     name: '二次元实例',
-    url: 'http://dreamlab0.cpolar.top',
+    url: 'https://dreamlab0.cpolar.top',
     fixedModelFile: 'anything-v5.safetensors',
     fixedModelName: 'Anything V5.0',
     specialty: 'anime',
@@ -152,7 +152,7 @@ const SD_INSTANCES_CONFIG: Omit<SDInstance, 'isAvailable'>[] = [
   {
     id: 'realistic',
     name: '写实实例',
-    url: 'http://textimage.cpolar.top',
+    url: 'https://textimage.cpolar.top',
     fixedModelFile: 'Realistic_Vision_V2.0-fp16-no-ema.safetensors',
     fixedModelName: 'Realistic Vision V2.0',
     specialty: 'realistic',
