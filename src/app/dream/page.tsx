@@ -3147,7 +3147,7 @@ export default function DreamPage() {
                     </div>
                   </div>
                   
-                  {/* 导出梦境按钮 */}
+                  {/* 下载梦境按钮 */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -3159,7 +3159,7 @@ export default function DreamPage() {
                         : 'bg-sky-50 text-sky-600 hover:bg-sky-100 border border-sky-200'
                     }`}
                   >
-                    💾 导出梦境
+                    💾 下载该图片
                   </button>
                 </div>
               ))}

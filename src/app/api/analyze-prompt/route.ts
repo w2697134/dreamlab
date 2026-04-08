@@ -329,11 +329,23 @@ ${keywordHint}
 
   } catch (error) {
     console.error('[AI分析] 错误:', error);
-    // 【修复】润色失败时返回原文本，而不是错误
+    // 【修复】润色失败时返回原文本+随机提示词
+    const randomEnhancements = [
+      'masterpiece, best quality, detailed',
+      'highly detailed, beautiful lighting, sharp focus',
+      'masterpiece, ultra-detailed, cinematic lighting',
+      'best quality, detailed, professional artwork',
+      'masterpiece, intricate details, soft lighting'
+    ];
+    const randomEnhance = randomEnhancements[Math.floor(Math.random() * randomEnhancements.length)];
+    
+    // 给用户原文加上随机增强词
+    const enhancedPrompt = inputSummary ? `${inputSummary}, ${randomEnhance}` : randomEnhance;
+    
     return new Response(JSON.stringify({
-      success: true, // 改为true，让前端正常处理
+      success: true,
       model: 'anime',
-      polishedPrompt: inputSummary || 'dream scene, masterpiece, best quality',
+      polishedPrompt: enhancedPrompt,
       polishedPromptCN: inputSummary || '梦境场景',
       negativePrompt: ['ugly', 'blurry', 'low quality', 'bad anatomy', 'worst quality'],
       analysis: { 
