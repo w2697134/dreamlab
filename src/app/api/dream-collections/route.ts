@@ -281,8 +281,18 @@ export async function DELETE(request: NextRequest) {
       });
     }
 
-    // 删除梦境集中的所有梦境
-    await client.from('dreams').delete().eq('collection_id', collectionId);
+    // 【修复】先查询并删除该梦境集下的所有梦境（处理外键约束）
+    const { data: dreams } = await client
+      .from('dreams')
+      .select('id')
+      .eq('collection_id', collectionId);
+    
+    if (dreams && dreams.length > 0) {
+      console.log('[API] 先删除关联的梦境:', dreams.length, '个');
+      for (const dream of dreams) {
+        await client.from('dreams').delete().eq('id', dream.id);
+      }
+    }
 
     // 删除梦境集
     const { error } = await client
