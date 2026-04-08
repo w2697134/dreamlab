@@ -87,6 +87,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '缺少图片' }, { status: 400 });
     }
 
+    // 保存图片（如果需要）
+    let savedImageUrl = imageUrl;
+    if (saveImage) {
+      savedImageUrl = await saveImageToStorage(imageUrl);
+    }
+
     // 使用千问进行图片分析
     const messages = [
       {
