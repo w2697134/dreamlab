@@ -248,47 +248,86 @@ ${keywordHint}
 
 最终输出要求：生成正向和反向提示词，必须包含中文描述（positivePromptCN）。`;
 
-    const messages = [
-      { role: 'system' as const, content: POLISH_PROMPT },
-      { role: 'user' as const, content: userContent }
-    ];
-
-    const { content: aiResult, provider } = await invokeQwen(messages, {
-      temperature: 0.7,
-    });
-
-    console.log(`[AI分析] 使用${provider}完成`);
-    // AI原始返回日志已精简
-
-    // 【修复】fallback 使用用户输入的内容，但英文提示词需要翻译
-    // 如果AI返回解析失败，使用用户原文+通用英文提示词
-    const fallback = {
-      analysis: { 
-        subject: inputSummary || '梦境场景', 
-        action: '在梦境中', 
-        setting: '神秘的梦境空间', 
-        mood: '神秘' 
-      },
-      // 【关键】英文提示词不能是中文，使用通用英文描述+用户原文
-      positivePromptEN: inputSummary 
-        ? `(${inputSummary}), masterpiece, best quality, detailed, artistic composition, beautiful lighting`
-        : 'dream scene, masterpiece, best quality, detailed, artistic composition',
-      positivePromptCN: inputSummary || '梦境场景',
-      negativePrompt: ['ugly', 'blurry', 'low quality', 'bad anatomy', 'worst quality'],
-      keywords: selectedKeywords || [],
-      mood: '平静',
-      model: 'default'
-    };
+    // 【修复】循环润色，直到英文提示词单词数>=20或达到最大尝试次数
+    const maxPolishAttempts = 5;
+    let polishAttempt = 0;
+    let analysisResult: any = null;
+    let provider = 'unknown';
     
-    const analysisResult = parseAIResult(aiResult, fallback);
+    while (polishAttempt < maxPolishAttempts) {
+      polishAttempt++;
+      console.log(`[AI分析] 第${polishAttempt}次润色尝试...`);
+      
+      const messages = [
+        { role: 'system' as const, content: POLISH_PROMPT },
+        { role: 'user' as const, content: userContent }
+      ];
+
+      try {
+        const { content: aiResult, provider: p } = await invokeQwen(messages, {
+          temperature: 0.7,
+        });
+        provider = p;
+        
+        // 解析结果
+        const cleaned = aiResult.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
+        try {
+          analysisResult = JSON.parse(cleaned);
+        } catch {
+          // 解析失败，继续下一次尝试
+          console.warn(`[AI分析] 第${polishAttempt}次解析失败，继续重试...`);
+          continue;
+        }
+        
+        // 检查英文提示词单词数
+        const wordCount = analysisResult.positivePromptEN ? analysisResult.positivePromptEN.split(/\s+/).length : 0;
+        console.log(`[AI分析] 第${polishAttempt}次润色结果: ${wordCount}个单词`);
+        
+        // 【日志】输出润色前后对比
+        console.log('[润色对比] ==========================================');
+        console.log('[润色前] 用户输入:', inputSummary);
+        console.log('[润色后] 英文提示词:', analysisResult.positivePromptEN?.substring(0, 100) + '...');
+        console.log('[润色后] 中文描述:', analysisResult.positivePromptCN?.substring(0, 100) + '...');
+        console.log(`[润色对比] 单词数: ${wordCount} (需要>=20)`);
+        console.log('[润色对比] ==========================================');
+        
+        // 如果单词数>=20，成功退出循环
+        if (wordCount >= 20) {
+          console.log(`[AI分析] 润色成功，单词数满足要求`);
+          break;
+        }
+        
+        // 单词数不足，继续下一次尝试
+        console.warn(`[AI分析] 单词数不足(${wordCount}<20)，继续重试...`);
+        
+      } catch (error) {
+        console.error(`[AI分析] 第${polishAttempt}次调用失败:`, error);
+        // 继续下一次尝试
+      }
+    }
+    
+    // 如果所有尝试都失败，使用fallback
+    if (!analysisResult || !analysisResult.positivePromptEN) {
+      console.warn(`[AI分析] ${maxPolishAttempts}次尝试均失败，使用fallback`);
+      analysisResult = {
+        analysis: { 
+          subject: inputSummary || '梦境场景', 
+          action: '在梦境中', 
+          setting: '神秘的梦境空间', 
+          mood: '神秘' 
+        },
+        positivePromptEN: inputSummary 
+          ? `(${inputSummary}), masterpiece, best quality, detailed, artistic composition, beautiful lighting`
+          : 'dream scene, masterpiece, best quality, detailed, artistic composition',
+        positivePromptCN: inputSummary || '梦境场景',
+        negativePrompt: ['ugly', 'blurry', 'low quality', 'bad anatomy', 'worst quality'],
+        keywords: selectedKeywords || [],
+        mood: '平静',
+        model: 'default'
+      };
+    }
+    
     console.log('[AI] 解析: 人物=' + (analysisResult.analysis?.subject?.substring(0, 20) || '无') + ', 模型=' + analysisResult.model);
-    
-    // 【日志】输出润色前后对比
-    console.log('[润色对比] ==========================================');
-    console.log('[润色前] 用户输入:', inputSummary);
-    console.log('[润色后] 英文提示词:', analysisResult.positivePromptEN?.substring(0, 100) + '...');
-    console.log('[润色后] 中文描述:', analysisResult.positivePromptCN?.substring(0, 100) + '...');
-    console.log('[润色对比] ==========================================');
 
     // 【修复】确保有中文描述，优先使用用户输入，而不是固定默认描述
     if (!analysisResult.positivePromptCN) {
