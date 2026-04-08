@@ -267,7 +267,7 @@ ${keywordHint}
         const { content: aiResult, provider: p } = await invokeQwen(messages, {
           temperature: 0.7,
         });
-        provider = p;
+        provider = p || 'unknown';
         
         // 解析结果
         const cleaned = aiResult.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
