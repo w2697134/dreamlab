@@ -336,16 +336,17 @@ export default function DreamPage() {
     }
   }, [genState.isGenerating, genState.progress, genState.message, genState.stage]);
   
-  // 使用持久化状态 - 表单数据在页面跳转后保留
-  const [artStyle, setArtStyle] = usePersistentState({ key: 'dream_form_artStyle', defaultValue: 'default' });
+  // 使用持久化状态 - 表单数据在页面跳转后保留，key包含用户ID实现多用户隔离
+  const userIdSuffix = authUser?.id ? `_${authUser.id}` : '_anonymous';
+  const [artStyle, setArtStyle] = usePersistentState({ key: `dream_form_artStyle${userIdSuffix}`, defaultValue: 'default' });
   const [showStyleSelector, setShowStyleSelector] = useState(false);
-  const [currentPrompt, setCurrentPrompt] = usePersistentState({ key: 'dream_form_currentPrompt', defaultValue: '' });
+  const [currentPrompt, setCurrentPrompt] = usePersistentState({ key: `dream_form_currentPrompt${userIdSuffix}`, defaultValue: '' });
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedImages, setGeneratedImages] = usePersistentState<GeneratedImage[]>({ key: 'dream_generatedImages', defaultValue: [], debounceMs: 100 });
-  const [lastPolishedPrompt, setLastPolishedPrompt] = usePersistentState<string>({ key: 'dream_lastPolishedPrompt', defaultValue: '', debounceMs: 100 }); // 润色后的英文提示词
-  const [lastPolishedPromptCN, setLastPolishedPromptCN] = usePersistentState<string>({ key: 'dream_lastPolishedPromptCN', defaultValue: '', debounceMs: 100 }); // 润色后的中文描述
+  const [generatedImages, setGeneratedImages] = usePersistentState<GeneratedImage[]>({ key: `dream_generatedImages${userIdSuffix}`, defaultValue: [], debounceMs: 100 });
+  const [lastPolishedPrompt, setLastPolishedPrompt] = usePersistentState<string>({ key: `dream_lastPolishedPrompt${userIdSuffix}`, defaultValue: '', debounceMs: 100 }); // 润色后的英文提示词
+  const [lastPolishedPromptCN, setLastPolishedPromptCN] = usePersistentState<string>({ key: `dream_lastPolishedPromptCN${userIdSuffix}`, defaultValue: '', debounceMs: 100 }); // 润色后的中文描述
   const [isPageReady, setIsPageReady] = useState(false); // 页面初始化完成标记
-  const [selectedImages, setSelectedImages] = usePersistentState<SelectedImage[]>({ key: 'dream_selectedImages', defaultValue: [] });
+  const [selectedImages, setSelectedImages] = usePersistentState<SelectedImage[]>({ key: `dream_selectedImages${userIdSuffix}`, defaultValue: [] });
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [currentVideo, setCurrentVideo] = useState<string | null>(null);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
@@ -372,14 +373,14 @@ export default function DreamPage() {
     generatedImages: string[]; // 记录生成的图片URL
     selectedKeywords: string[]; // 记录选择的关键词
     dreamSequence: number; // 梦境片段序号
-  } | null>({ key: 'dream_contextHistory', defaultValue: null });
-  const [selectedSceneElements, setSelectedSceneElements] = usePersistentState<string[]>({ key: 'dream_form_selectedSceneElements', defaultValue: [] });
-  const [dreamKeywords, setDreamKeywords] = usePersistentState<string[]>({ key: 'dream_form_dreamKeywords', defaultValue: defaultDreamKeywords });
-  const [selectedKeywords, setSelectedKeywords] = usePersistentState<string[]>({ key: 'dream_form_selectedKeywords', defaultValue: [] });
+  } | null>({ key: `dream_contextHistory${userIdSuffix}`, defaultValue: null });
+  const [selectedSceneElements, setSelectedSceneElements] = usePersistentState<string[]>({ key: `dream_form_selectedSceneElements${userIdSuffix}`, defaultValue: [] });
+  const [dreamKeywords, setDreamKeywords] = usePersistentState<string[]>({ key: `dream_form_dreamKeywords${userIdSuffix}`, defaultValue: defaultDreamKeywords });
+  const [selectedKeywords, setSelectedKeywords] = usePersistentState<string[]>({ key: `dream_form_selectedKeywords${userIdSuffix}`, defaultValue: [] });
   const [isRefreshingKeywords, setIsRefreshingKeywords] = useState(false);
   const [showRiverAnimation, setShowRiverAnimation] = useState(false);
   const [isPolishing, setIsPolishing] = useState(false);
-  const [hasUserPolished, setHasUserPolished] = usePersistentState<boolean>({ key: 'dream_form_hasUserPolished', defaultValue: false });
+  const [hasUserPolished, setHasUserPolished] = usePersistentState<boolean>({ key: `dream_form_hasUserPolished${userIdSuffix}`, defaultValue: false });
   const [showStyleVariantSelector, setShowStyleVariantSelector] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [showErrorReport, setShowErrorReport] = useState(false);
@@ -1112,7 +1113,7 @@ export default function DreamPage() {
     clearGeneration(); // 重置全局状态
     
     // 【关键】清除所有持久化缓存，防止重置后图片仍在
-    clearAllDreamState();
+    clearAllDreamState(authUser?.id);
     
     // 重置草稿中的图片
     saveDraft({
@@ -1720,7 +1721,7 @@ export default function DreamPage() {
       abortControllerRef.current = null;
       
       // 生成完成后清除持久化状态（可选：如果用户想保留草稿可以注释掉）
-      // clearAllDreamState();
+      // clearAllDreamState(authUser?.id);
     }
   };
 
@@ -2371,7 +2372,7 @@ export default function DreamPage() {
     setContextHistory(null);
     
     // 【关键】同步清除所有持久化缓存，避免完成创作后刷新页面数据仍在
-    clearAllDreamState();
+    clearAllDreamState(authUser?.id);
     
     // 删除本地草稿存储
     await deleteDraft(authUser?.id);

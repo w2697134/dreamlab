@@ -68,25 +68,28 @@ const DISABLED_PERSISTENCE_KEYS = [
 ];
 
 // 清除所有梦境相关的持久化状态
-export function clearAllDreamState() {
+export function clearAllDreamState(userId?: string) {
   if (typeof window === 'undefined') return;
   
+  const suffix = userId ? `_${userId}` : '';
   const keysToRemove = [
-    'dream_form_currentPrompt',
-    'dream_form_artStyle',
-    'dream_form_selectedSceneElements',
-    'dream_form_selectedKeywords',
-    'dream_form_dreamKeywords',
-    'dream_form_hasUserPolished',
-    'dream_form_uploadedImages',
-    'dream_generatedImages',
-    'dream_lastPolishedPrompt',
-    'dream_selectedImages',
+    `dream_form_currentPrompt${suffix}`,
+    `dream_form_artStyle${suffix}`,
+    `dream_form_selectedSceneElements${suffix}`,
+    `dream_form_selectedKeywords${suffix}`,
+    `dream_form_dreamKeywords${suffix}`,
+    `dream_form_hasUserPolished${suffix}`,
+    `dream_form_uploadedImages${suffix}`,
+    `dream_generatedImages${suffix}`,
+    `dream_lastPolishedPrompt${suffix}`,
+    `dream_lastPolishedPromptCN${suffix}`,
+    `dream_selectedImages${suffix}`,
+    `dream_contextHistory${suffix}`,
   ];
   
   keysToRemove.forEach(key => {
     localStorage.removeItem(key);
   });
   
-  console.log('[持久化状态] 已清除所有梦境表单状态');
+  console.log('[持久化状态] 已清除梦境表单状态:', userId ? `用户${userId}` : '匿名');
 }
