@@ -42,10 +42,10 @@ User will specify style at the end of input:
 
 **positivePromptEN Structure:**
 1. Prefix: (masterpiece, best quality:1.2)
-2. Subject: 1girl/1boy, character name, detailed facial features
-3. Action: pose, expression, looking at viewer
-4. Outfit: clothing, colors, materials
-5. Scene: background, environment
+2. Subject: 根据用户输入描述主体（人物/物体/场景），detailed features
+3. Action: 根据用户输入描述动作或状态
+4. Details: 细节描述（服装/颜色/材质等）
+5. Scene: background, environment based on user input
 6. Atmosphere: dreamy, soft lighting
 7. Style: anime style, pastel colors
 
@@ -70,12 +70,11 @@ User will specify style at the end of input:
 
 **positivePromptEN Structure:**
 1. Prefix: (photorealistic, hyperrealistic, real photograph:1.3)
-2. Subject: 1girl/1boy, detailed facial features
-3. Skin Details: MUST INCLUDE skin pores, iris details, realistic skin texture
-4. Action: natural pose, expression
-5. Outfit: realistic clothing
-6. Scene: realistic background
-7. Lighting: natural lighting, realistic shadows
+2. Subject: 根据用户输入描述主体，detailed features
+3. Details: 根据用户输入描述细节
+4. Action: natural pose, expression based on user input
+5. Scene: realistic background based on user input
+6. Lighting: natural lighting, realistic shadows
 
 **FORBIDDEN for 写实:**
 - NO anime, cartoon, illustration, 3d, render, cg
@@ -102,11 +101,11 @@ User will specify style at the end of input:
 
 ### Fixed Order (MUST FOLLOW)
 1. **Prefix** - style-specific quality tags with weight
-2. **Subject Core** - 1girl/1boy, character name, age
-3. **Facial Features (MUST)** - detailed eyes, nose, mouth, face shape
-4. **Action & Expression** - pose, gesture, looking at viewer
-5. **Outfit Details** - clothing, colors, materials
-6. **Scene Background** - indoor/outdoor, environment
+2. **Subject Core** - 根据用户输入描述主体（人物/物体/场景）
+3. **Details** - detailed features based on user input
+4. **Action & Expression** - pose, gesture based on user input
+5. **Scene Details** - clothing, colors, materials, environment
+6. **Scene Background** - indoor/outdoor based on user input
 7. **Lighting & Atmosphere** - style-appropriate lighting
 
 ### Weight Syntax
@@ -140,16 +139,16 @@ Always describe: eyes (shape, color, expression), nose, mouth/lips, face shape
 ## EXAMPLES
 
 ### Example 1: 二次元风格
-Input: "雷电将军 【二次元】"
-Output positivePromptEN: "(masterpiece, best quality:1.2), Raiden Shogun from Genshin Impact, 1girl, female, mature adult, large expressive purple eyes with glowing pupils, small delicate nose, soft pink lips, oval face, long flowing purple hair with flower ornaments, traditional Japanese kimono with intricate patterns, standing gracefully, calm serene expression, looking at viewer, cherry blossom garden background, soft pink petals falling, dreamy atmosphere, soft lighting, anime style, pastel colors"
-Word count: 78 ✓
-Output positivePromptCN: "紫发如瀑的女子静立于纷飞樱花之下，眼眸深邃似藏着雷霆万钧，和服轻扬间流露威严与优雅，花瓣飘落如雨，仿佛时光在此刻凝固，唯余花香与静谧相伴"
+Input: "樱花盛开的庭院，宁静午后"
+Output positivePromptEN: "(masterpiece, best quality:1.2), traditional Japanese courtyard garden in full cherry blossom season, delicate pink sakura petals floating in the air, sunlight filtering through branches creating dappled shadows on tatami mats, peaceful afternoon atmosphere, wooden tea house in background, stone lanterns along pathway, serene and tranquil mood, soft pastel colors, anime style, detailed background, dreamy lighting"
+Word count: 56 ✓
+Output positivePromptCN: "樱花盛开的日式庭院，粉白花瓣随风轻舞，阳光透过枝桠在榻榻米上洒下斑驳光影，午后时光静谧安详，远处茶室掩映在花海中，石灯笼点缀小径，如梦似幻"
 
 ### Example 2: 写实风格
-Input: "雷电将军 【写实】"
-Output positivePromptEN: "(photorealistic, hyperrealistic, real photograph:1.3), Raiden Shogun, female, mature adult, detailed face with realistic skin pores, sharp purple eyes with detailed iris texture, small nose, soft natural lips, defined jawline, long purple hair with natural flow, traditional Japanese outfit, standing in natural pose, realistic cherry blossom garden background, natural daylight, realistic shadows, professional photography"
-Word count: 65 ✓
-Output positivePromptCN: "紫发女子伫立于樱花树下，眼眸深邃如潭，肌肤纹理细腻真实，阳光透过花瓣洒落，在和服上投下斑驳光影，仿佛一幅静谧的东方画卷"`;
+Input: "城市夜景，霓虹灯光"
+Output positivePromptEN: "(photorealistic, hyperrealistic, real photograph:1.3), bustling city street at night, vibrant neon signs illuminating the scene with colorful lights reflecting on wet pavement after rain, tall skyscrapers with glowing windows, crowds of people walking with umbrellas, street vendors with food carts, atmospheric fog, cinematic composition, professional photography, 8k uhd"
+Word count: 52 ✓
+Output positivePromptCN: "繁华都市夜景，霓虹灯牌在雨后湿润的路面上投下斑斓倒影，摩天大楼灯火通明，行人撑伞穿梭，街边小贩烟火气弥漫，雾气氤氲中尽显都市魅力"`;
 /**
  * 解析AI结果
  */
