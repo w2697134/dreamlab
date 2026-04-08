@@ -273,6 +273,56 @@ export async function POST(request: NextRequest) {
           throw new Error('缺少提示词');
         }
         
+        // 【检测】如果提示词单词数小于20，重新润色
+        const wordCount = polishedPrompt.split(/\s+/).length;
+        console.log(`[生成API] 提示词检测: ${wordCount}个单词`);
+        
+        if (wordCount < 20) {
+          console.warn(`[生成API] 单词数不足(${wordCount}<20)，需要重新润色`);
+          await sendProgress(controller, 'analyzing', '正在优化梦境描述...', 5);
+          
+          // 调用润色API重新润色
+          const { invokeLLM } = await import('@/lib/llm-client');
+          const polishMessages = [
+            { role: 'system' as const, content: '你是一个专业的AI绘画提示词优化师。将用户的描述转化为详细的英文提示词，必须包含60-90个英文单词，描述主体、动作、场景、光线、风格等细节。直接返回优化后的英文提示词，不要解释。' },
+            { role: 'user' as const, content: `请将以下描述转化为详细的英文AI绘画提示词（60-90个单词）：\n\n${polishedPrompt}` }
+          ];
+          
+          let retryCount = 0;
+          const maxRetries = 5;
+          let finalPrompt = polishedPrompt;
+          
+          while (retryCount < maxRetries) {
+            retryCount++;
+            console.log(`[生成API] 第${retryCount}次重新润色...`);
+            
+            try {
+              const result = await invokeLLM(polishMessages, {
+                customHeaders: { 'X-Retry-Count': String(retryCount) }
+              });
+              
+              const newPrompt = result.content.trim();
+              const newWordCount = newPrompt.split(/\s+/).length;
+              
+              console.log(`[生成API] 重新润色结果: ${newWordCount}个单词`);
+              
+              if (newWordCount >= 20) {
+                finalPrompt = newPrompt;
+                console.log(`[生成API] 重新润色成功，使用新提示词`);
+                break;
+              }
+              
+              console.warn(`[生成API] 单词数仍不足(${newWordCount}<20)，继续重试...`);
+            } catch (error) {
+              console.error(`[生成API] 重新润色失败:`, error);
+            }
+          }
+          
+          // 更新提示词
+          body.polishedPrompt = finalPrompt;
+          console.log(`[生成API] 最终提示词: ${finalPrompt.substring(0, 100)}...`);
+        }
+        
         await sendProgress(controller, 'start', '梦境正在编织中...', 0);
         
         // 【平滑过渡】从0%到10%的初始进度（加快更新频率）

@@ -13,6 +13,7 @@ import DraggableFixButton from '@/components/ui/DraggableFixButton';
 import DreamProgressBar from '@/components/DreamProgressBar';
 import StarBackground from '@/components/StarBackground';
 import GlobalLoading from '@/components/GlobalLoading';
+import LogConsole from '@/components/LogConsole';
 
 // ========== 常见角色词库 ==========
 const CHARACTER_DATABASE: Record<string, {
@@ -2459,6 +2460,9 @@ export default function DreamPage() {
       >
         {/* 星空背景 */}
         <StarBackground />
+        
+        {/* 日志控制台 */}
+        <LogConsole />
         
         <button
           onClick={toggleMode}
