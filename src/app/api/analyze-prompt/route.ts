@@ -265,7 +265,7 @@ ${keywordHint}
 
       try {
         const { content: aiResult, provider: p } = await invokeQwen(messages, {
-          temperature: 0.7,
+          temperature: 0.4,
         });
         provider = p || 'unknown';
         
@@ -281,24 +281,29 @@ ${keywordHint}
         
         // 检查英文提示词单词数
         const wordCount = analysisResult.positivePromptEN ? analysisResult.positivePromptEN.split(/\s+/).length : 0;
-        console.log(`[AI分析] 第${polishAttempt}次润色结果: ${wordCount}个单词`);
+        
+        // 计算最少词数：max(30, 用户输入词数 × 6)
+        const userWordCount = inputSummary ? inputSummary.split(/\s+/).length : 0;
+        const minWordCount = Math.max(30, userWordCount * 6);
+        
+        console.log(`[AI分析] 第${polishAttempt}次润色结果: ${wordCount}个单词, 最少需要: ${minWordCount}`);
         
         // 【日志】输出润色前后对比
         console.log('[润色对比] ==========================================');
         console.log('[润色前] 用户输入:', inputSummary);
         console.log('[润色后] 英文提示词:', analysisResult.positivePromptEN?.substring(0, 100) + '...');
         console.log('[润色后] 中文描述:', analysisResult.positivePromptCN?.substring(0, 100) + '...');
-        console.log(`[润色对比] 单词数: ${wordCount} (需要>=20)`);
+        console.log(`[润色对比] 单词数: ${wordCount} (需要>=${minWordCount})`);
         console.log('[润色对比] ==========================================');
         
-        // 如果单词数>=20，成功退出循环
-        if (wordCount >= 20) {
+        // 如果单词数>=最少词数，成功退出循环
+        if (wordCount >= minWordCount) {
           console.log(`[AI分析] 润色成功，单词数满足要求`);
           break;
         }
         
         // 单词数不足，继续下一次尝试
-        console.warn(`[AI分析] 单词数不足(${wordCount}<20)，继续重试...`);
+        console.warn(`[AI分析] 单词数不足(${wordCount}<${minWordCount})，继续重试...`);
         
       } catch (error) {
         console.error(`[AI分析] 第${polishAttempt}次调用失败:`, error);
@@ -329,9 +334,12 @@ ${keywordHint}
     
     console.log('[AI] 解析: 人物=' + (analysisResult.analysis?.subject?.substring(0, 20) || '无') + ', 模型=' + analysisResult.model);
 
-    // 【修复】确保有中文描述，优先使用用户输入，而不是固定默认描述
-    if (!analysisResult.positivePromptCN) {
-      console.warn('[AI分析] 警告: AI未生成中文描述，使用用户输入');
+    // 【修复】确保有中文描述，如果AI返回的是默认描述或空，使用用户输入
+    const isDefaultDesc = analysisResult.positivePromptCN?.includes('如梦似幻') || 
+                          analysisResult.positivePromptCN?.includes('若隐若现') ||
+                          !analysisResult.positivePromptCN;
+    if (isDefaultDesc) {
+      console.warn('[AI分析] 警告: AI返回默认描述或空，使用用户输入');
       analysisResult.positivePromptCN = inputSummary || '梦境场景';
     }
 

@@ -274,11 +274,14 @@ export async function POST(request: NextRequest) {
         }
         
         // 【检测】如果提示词单词数小于20，重新润色
+        // 检测是否包含中文字符
+        const hasChinese = /[\u4e00-\u9fa5]/.test(polishedPrompt);
         const wordCount = polishedPrompt.split(/\s+/).length;
-        console.log(`[生成API] 提示词检测: ${wordCount}个单词`);
+        console.log(`[生成API] 提示词检测: ${wordCount}个单词, 包含中文: ${hasChinese}`);
         
-        if (wordCount < 20) {
-          console.warn(`[生成API] 单词数不足(${wordCount}<20)，需要重新润色`);
+        // 如果包含中文或单词数小于20，都需要重新润色
+        if (hasChinese || wordCount < 20) {
+          console.warn(`[生成API] ${hasChinese ? '包含中文' : '单词数不足'}，需要重新润色`);
           await sendProgress(controller, 'analyzing', '正在优化梦境描述...', 5);
           
           // 调用润色API重新润色
