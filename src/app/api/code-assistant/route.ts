@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { LLMClient, Config, HeaderUtils } from 'coze-coding-dev-sdk';
+import { invokeLLM } from '@/lib/llm-client';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -131,8 +131,7 @@ export async function POST(request: NextRequest) {
     const { messages, stream, enableCodeActions } = await request.json();
     const customHeaders = HeaderUtils.extractForwardHeaders(request.headers);
 
-    const config = new Config();
-    const client = new LLMClient(config, customHeaders);
+    // 使用千问进行代码助手对话
 
     // 获取用户最新的消息
     const userMessage = messages[messages.length - 1]?.content || '';
@@ -241,10 +240,16 @@ export async function POST(request: NextRequest) {
       });
     } else {
       // 非流式输出
-      const response = await client.invoke(conversationMessages, {
-        model: 'qwen3.5 9b',
-        temperature: 0.7,
-      });
+      let response;
+      try {
+        response = await invokeLLM(conversationMessages);
+      } catch (error) {
+        console.error('[代码助手] 千问调用失败:', error);
+        return NextResponse.json({ 
+          error: 'AI 服务暂时不可用，请稍后重试',
+          content: '抱歉，AI 服务暂时不可用，请稍后重试。'
+        }, { status: 503 });
+      }
 
       // 解析代码操作
       let actions: CodeAction[] = [];

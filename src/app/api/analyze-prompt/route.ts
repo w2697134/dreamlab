@@ -21,7 +21,7 @@ User will specify style at the end of input:
     "mood": "氛围描述"
   },
   "positivePromptEN": "60-90 English words, style-specific prefix + content",
-  "positivePromptCN": "60-80 Chinese characters, pure visual description, NO SD tags",
+  "positivePromptCN": "中文描述字数 = 30 + 用户输入字数×6，封顶100字，允许±5字误差。必须结合上下文历史描述，保持梦境连贯性。", 
   "negativePrompt": ["style-specific negative prompts"],
   "keywords": ["中文关键词"],
   "mood": "中文氛围词",
@@ -186,6 +186,31 @@ export async function POST(request: NextRequest) {
     
     const inputSummary = userInput?.trim() || '';
     const keywordSummary = selectedKeywords?.join('、') || '';
+    
+    // 检查输入长度（至少2个字符）
+    if (inputSummary.length < 2 && keywordSummary.length === 0) {
+      console.log('[AI] 输入太短，跳过润色:', inputSummary);
+      return new Response(JSON.stringify({
+        success: true,
+        model: artStyle === 'anime' ? 'anime' : (artStyle === 'realistic' ? 'realistic' : 'default'),
+        polishedPrompt: inputSummary || 'dream scene, masterpiece, best quality',
+        polishedPromptCN: inputSummary || '梦境场景',
+        negativePrompt: ['ugly', 'blurry', 'low quality', 'bad anatomy', 'worst quality'],
+        analysis: { 
+          subject: inputSummary || '梦境场景', 
+          action: '在梦境中', 
+          setting: '神秘的梦境空间', 
+          mood: '神秘' 
+        },
+        keywords: selectedKeywords || [],
+        mood: '平静',
+        provider: 'original',
+        warning: '输入太短，使用原始描述'
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
     
     // 【上下文关联】拼接历史润色后的提示词
     let contextualInput = inputSummary;

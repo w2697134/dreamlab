@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { LLMClient, Config, HeaderUtils } from 'coze-coding-dev-sdk';
+import { invokeLLM } from '@/lib/llm-client';
 import fs from 'fs';
 import path from 'path';
 

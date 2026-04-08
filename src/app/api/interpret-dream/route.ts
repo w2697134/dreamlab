@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { LLMClient, Config, HeaderUtils } from 'coze-coding-dev-sdk';
+import { invokeLLM } from '@/lib/llm-client';
 
 const INTERPRET_PROMPT = `你是梦境图像分析师，你的任务是：
 1. 根据用户描述和画面参数，生成独特的画面解读
@@ -47,8 +47,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '缺少用户描述' }, { status: 400 });
     }
 
-    const customHeaders = HeaderUtils.extractForwardHeaders(request.headers);
-    const client = new LLMClient(new Config(), customHeaders);
+    // 使用千问进行梦境解读
 
     // 光线名称映射
     const lightMoodNames: Record<string, string> = {
@@ -111,18 +110,23 @@ export async function POST(request: NextRequest) {
       { role: 'user' as const, content: userContent }
     ];
 
-    // 使用 AbortController 实现真正的超时
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000); // 25秒超时
-    
+    // 调用千问进行解读（带重试）
     let response;
     try {
-      response = await client.invoke(messages, {
-        model: 'qwen3.5 9b',
-        temperature: 0.7,
+      response = await invokeLLM(messages);
+    } catch (error) {
+      console.error('[梦境解读] 千问调用失败:', error);
+      // 返回降级响应
+      const fallbackKeywords = userInput 
+        ? userInput.split(/[，。！？,\.!?\s]+/).filter((w: string) => w.length >= 2).slice(0, 5)
+        : [];
+      return NextResponse.json({ 
+        success: true,
+        interpretation: `## 梦境关键词\n${fallbackKeywords.join(' | ')}\n\n## 画面解读\n${userInput ? userInput.substring(0, 50) + '...' : '梦境画面充满神秘与想象'}\n\n## 情绪标签\n神秘 | 宁静`,
+        keywords: fallbackKeywords,
+        emotionTags: ['神秘', '宁静'],
+        warning: 'AI解读服务暂时不可用，已使用基础分析'
       });
-    } finally {
-      clearTimeout(timeoutId);
     }
     
     if (response.content) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { LLMClient, Config, HeaderUtils } from 'coze-coding-dev-sdk';
+import { invokeLLM } from '@/lib/llm-client';
 
 // 延迟函数 - 降低API调用速率
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -48,21 +48,28 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const customHeaders = HeaderUtils.extractForwardHeaders(request.headers);
-    const client = new LLMClient(new Config(), customHeaders);
-
     const combinedInput = `${userInput || ''} ${selectedKeywords.join(' ')}`.trim();
 
     // 添加延迟降低API调用速率
     await delay(200);
 
-    const response = await client.invoke([
-      { role: 'system', content: MODEL_SELECT_PROMPT },
-      { role: 'user', content: `User input: "${combinedInput}"\n\nChoose the best model (output JSON only):` }
-    ], {
-      model: 'qwen3.5 9b',
-      temperature: 0.1,
-    });
+    let response;
+    try {
+      response = await invokeLLM([
+        { role: 'system', content: MODEL_SELECT_PROMPT },
+        { role: 'user', content: `User input: "${combinedInput}"\n\nChoose the best model (output JSON only):` }
+      ]);
+    } catch (error) {
+      console.error('[模型选择] 千问调用失败:', error);
+      // 返回默认模型
+      return NextResponse.json({
+        success: true,
+        model: 'anythingV5',
+        modelName: 'Anything V5.0',
+        modelFile: 'anything-v5.safetensors',
+        reason: 'AI analysis failed, default to Anything V5'
+      });
+    }
 
     let result = response.content.trim();
     result = result.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();

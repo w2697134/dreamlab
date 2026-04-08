@@ -142,8 +142,8 @@ async function generateBatch(
     // 【新增】添加提示词强调参考图的重要性
     requestBody.prompt = `((reference image style)), ${prompt}`;
     
-    // 添加反向提示词避免风格偏离
-    requestBody.negative_prompt += ', different style, changed composition, altered pose, different lighting, different colors, different background, modified structure'
+    // 添加反向提示词避免风格偏离和怪异效果
+    requestBody.negative_prompt += ', different style, changed composition, altered pose, different lighting, different colors, different background, modified structure, weird eyes, unnatural face, plastic skin, doll-like, uncanny valley'
   }
   
   const res = await fetch(`${sdUrl}${apiEndpoint}`, {
