@@ -184,6 +184,7 @@ const [collections, setCollections] = useState<DreamCollection[]>([]);
   const handleDeleteCollection = async (collectionId: string) => {
     // 【修复】根据ID格式判断是本地数据还是云端数据（纯数字ID是本地数据）
     const isLocalId = /^\d+$/.test(collectionId);
+    console.log('[删除梦境集] ID:', collectionId, '是否本地:', isLocalId);
     
     if (isLocalId) {
       // 本地数据直接从 localStorage 删除
