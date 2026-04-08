@@ -196,16 +196,17 @@ export async function POST(request: NextRequest) {
       const stream = new ReadableStream({
         async start(controller) {
           try {
-            const aiStream = client.stream(conversationMessages, {
-              model: 'qwen3.5 9b',
-              temperature: 0.7,
-            });
-
-            for await (const chunk of aiStream) {
-              if (chunk.content) {
-                fullResponse += chunk.content;
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: chunk.content })}\n\n`));
-              }
+            // 【修复】使用 invokeLLM 代替 client.stream
+            const response = await invokeLLM(conversationMessages);
+            fullResponse = response.content;
+            
+            // 模拟流式输出：按字符分批发送
+            const chunkSize = 4;
+            for (let i = 0; i < fullResponse.length; i += chunkSize) {
+              const chunk = fullResponse.slice(i, i + chunkSize);
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: chunk })}\n\n`));
+              // 小延迟模拟打字效果
+              await new Promise(resolve => setTimeout(resolve, 10));
             }
             
             // 解析并执行代码操作
