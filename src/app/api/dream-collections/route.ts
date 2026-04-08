@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    // 查询用户的梦境集，并关联梦境内容（明确指定字段，避免schema缓存问题）
+    // 查询用户的梦境集，并关联梦境内容和心理评估
     const { data: collections, error } = await client
       .from('dream_collections')
       .select(`
@@ -84,6 +84,12 @@ export async function GET(request: NextRequest) {
           video_url,
           dream_type,
           art_style,
+          created_at
+        ),
+        psychology_assessments (
+          id,
+          stress_level,
+          emotion_state,
           created_at
         )
       `)

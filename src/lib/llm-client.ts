@@ -30,7 +30,7 @@ export async function invokeLLM(
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      await delay(100 * attempt); // 递增延迟
+      await delay(1000 + 100 * attempt); // 递增延迟，基础1秒
       const result = await invokeQwen(messages, {
         temperature: 0.7,
       });
@@ -42,7 +42,7 @@ export async function invokeLLM(
       
       if (attempt < maxRetries) {
         console.log(`[LLM] 等待后重试...`);
-        await delay(500 * attempt);
+        await delay(1000 + 500 * attempt); // 重试间隔基础1秒
       }
     }
   }

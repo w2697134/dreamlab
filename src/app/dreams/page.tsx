@@ -65,6 +65,12 @@ interface DreamCollection {
   image_count: number;
   created_at: string;
   dreams: Dream[];
+  psychology_assessments?: {
+    id: string;
+    stress_level: number;
+    emotion_state: string;
+    created_at: string;
+  }[];
 }
 
 export default function DreamsPage() {
@@ -449,7 +455,16 @@ const [collections, setCollections] = useState<DreamCollection[]>([]);
 
   // 获取评估状态
   const getAssessmentStatus = (collection: DreamCollection) => {
-    // 优先从 assessmentRecords 获取
+    // 【修复】优先从云端 psychology_assessments 获取
+    if (collection.psychology_assessments && collection.psychology_assessments.length > 0) {
+      const assessment = collection.psychology_assessments[0];
+      return {
+        stressLevel: assessment.stress_level,
+        stressLabel: getStressLabel(assessment.stress_level),
+        timestamp: assessment.created_at,
+      };
+    }
+    // 其次从本地 assessmentRecords 获取
     if (assessmentRecords[collection.id]) {
       return assessmentRecords[collection.id];
     }
@@ -469,11 +484,18 @@ const [collections, setCollections] = useState<DreamCollection[]>([]);
     return null;
   };
 
+  // 根据压力值获取标签
+  const getStressLabel = (level: number) => {
+    if (level > 70) return '压力较高';
+    if (level > 50) return '中等压力';
+    return '状态良好';
+  };
+
   // 获取评估按钮文本
   const getAssessmentButton = (collection: DreamCollection) => {
     const record = getAssessmentStatus(collection);
     if (record) {
-      return { text: `查看评估 (${record.stressLabel})`, isAssessed: true };
+      return { text: `已评估，查看结果 (${record.stressLabel})`, isAssessed: true };
     }
     return { text: '立刻去评估', isAssessed: false };
   };
