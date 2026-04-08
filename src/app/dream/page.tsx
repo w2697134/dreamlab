@@ -1111,15 +1111,18 @@ export default function DreamPage() {
     setGeneratedImages([]);
     clearGeneration(); // 重置全局状态
     
+    // 【关键】清除所有持久化缓存，防止重置后图片仍在
+    clearAllDreamState();
+    
     // 重置草稿中的图片
     saveDraft({
-      currentPrompt,
-      selectedKeywords,
-      selectedSceneElements,
-      uploadedImages,
+      currentPrompt: '',
+      selectedKeywords: [],
+      selectedSceneElements: [],
+      uploadedImages: [],
       generatedImages: [], // 重置图片
       selectedImages: [],
-      artStyle,
+      artStyle: 'anime',
     }, authUser?.id);
     
     // 重置取消状态
@@ -2367,8 +2370,8 @@ export default function DreamPage() {
     setSelectedImages([]);
     setContextHistory(null);
     
-    // 【关键】同步清除 localStorage 中的上下文历史，避免防抖延迟导致的问题
-    localStorage.removeItem('dream_contextHistory');
+    // 【关键】同步清除所有持久化缓存，避免完成创作后刷新页面数据仍在
+    clearAllDreamState();
     
     // 删除本地草稿存储
     await deleteDraft(authUser?.id);

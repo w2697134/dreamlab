@@ -193,6 +193,15 @@ const [collections, setCollections] = useState<DreamCollection[]>([]);
           localStorage.setItem('dreamLibrary', JSON.stringify(filtered));
           setCollections(prev => prev.filter(c => c.id !== collectionId));
           setExpandedCollection(null);
+          
+          // 【修复】清除该梦境集的评估缓存
+          const records = JSON.parse(localStorage.getItem('assessmentRecords') || '{}');
+          if (records[collectionId]) {
+            delete records[collectionId];
+            localStorage.setItem('assessmentRecords', JSON.stringify(records));
+            setAssessmentRecords(records);
+          }
+          
           showToast('梦境集已删除', 'success');
           setShowDeleteConfirm(false);
           setDeleteTarget(null);
@@ -224,6 +233,16 @@ const [collections, setCollections] = useState<DreamCollection[]>([]);
 
       setCollections(prev => prev.filter(c => c.id !== collectionId));
       setExpandedCollection(null);
+      
+      // 【修复】清除该梦境集的评估缓存
+      const records = JSON.parse(localStorage.getItem('assessmentRecords') || '{}');
+      if (records[collectionId]) {
+        delete records[collectionId];
+        localStorage.setItem('assessmentRecords', JSON.stringify(records));
+        setAssessmentRecords(records);
+        console.log('[梦境库] 已清除梦境集的评估缓存:', collectionId);
+      }
+      
       showToast('梦境集已删除', 'success');
     } catch (error) {
       showToast('删除出错，请重试', 'error');
@@ -314,6 +333,15 @@ const [collections, setCollections] = useState<DreamCollection[]>([]);
         }
         return c;
       }).filter(c => c.image_count > 0)); // 如果集里没有图片了，移除该集
+
+      // 【修复】清除该梦境集的评估缓存，避免删除后仍显示旧评估
+      const records = JSON.parse(localStorage.getItem('assessmentRecords') || '{}');
+      if (records[collectionId]) {
+        delete records[collectionId];
+        localStorage.setItem('assessmentRecords', JSON.stringify(records));
+        setAssessmentRecords(records);
+        console.log('[梦境库] 已清除梦境集的评估缓存:', collectionId);
+      }
 
       showToast('梦境已删除', 'success');
     } catch (error) {
