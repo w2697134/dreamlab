@@ -2060,16 +2060,16 @@ export default function DreamPage() {
     // 重置交互状态
     userInteractedRef.current = false;
 
-    // 第15秒重新生成关键词（基于当前输入）
+    // 第20秒重新生成关键词（基于当前输入）
     autoRefreshTimerRef.current = setTimeout(() => {
       if (!userInteractedRef.current) {
         const currentInput = currentPromptRef.current?.trim();
         const lastKeyword = selectedKeywordsRef.current[selectedKeywordsRef.current.length - 1];
         const keywordToUse = currentInput || lastKeyword || '梦境';
-        console.log('[自动刷新] 第15秒，重新生成关键词:', keywordToUse);
+        console.log('[自动刷新] 第20秒，重新生成关键词:', keywordToUse);
         fetchRelatedKeywords(keywordToUse);
       }
-    }, 15000);
+    }, 20000);
   };
 
   // 组件挂载时启动定时器
