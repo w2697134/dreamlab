@@ -1,0 +1,26 @@
+[
+  {
+    "id": "anime-main",
+    "name": "二次元实例",
+    "url": "https://dreamlab0.cpolar.top",
+    "fixedModelFile": "anything-v5.safetensors",
+    "fixedModelName": "Anything V5.0",
+    "fixedModel": "anime",
+    "specialty": "anime",
+    "canSwitchModel": false,
+    "isDefault": false,
+    "isAvailable": true
+  },
+  {
+    "id": "custom-1775357011260",
+    "name": "写实实例",
+    "url": "http://textimage.cpolar.top",
+    "fixedModelFile": "",
+    "fixedModelName": "待配置",
+    "fixedModel": "realistic",
+    "specialty": "realistic",
+    "canSwitchModel": false,
+    "isDefault": false,
+    "isAvailable": true
+  }
+]

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>梦境可视化 - 本地免费版</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      color: #fff;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      padding: 30px 0;
+      font-size: 2em;
+    }
+    .status {
+      text-align: center;
+      padding: 15px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+    .status.online { background: #2d5a3d; }
+    .status.offline { background: #5a2d2d; }
+    .input-section {
+      background: rgba(255,255,255,0.1);
+      padding: 25px;
+      border-radius: 15px;
+      margin-bottom: 20px;
+    }
+    textarea {
+      width: 100%;
+      height: 100px;
+      padding: 15px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      resize: vertical;
+      background: rgba(255,255,255,0.9);
+      color: #333;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 15px;
+      margin-top: 15px;
+      border: none;
+      border-radius: 10px;
+      font-size: 18px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    .btn-primary:hover { transform: translateY(-2px); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .result {
+      background: rgba(255,255,255,0.1);
+      padding: 25px;
+      border-radius: 15px;
+      text-align: center;
+    }
+    .result img {
+      max-width: 100%;
+      border-radius: 10px;
+      margin-top: 15px;
+    }
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 20px;
+    }
+    .loading.show { display: block; }
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 15px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .tag {
+      display: inline-block;
+      padding: 5px 15px;
+      background: #4CAF50;
+      border-radius: 20px;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🌙 梦境可视化 - 本地免费版</h1>
+    
+    <div id="status" class="status offline">
+      正在检测本地 SD...
+    </div>
+
+    <div class="input-section">
+      <textarea id="prompt" placeholder="描述你的梦境...&#10;例如: 我在一片星空下的湖边漫步，月光洒在水面上"></textarea>
+      <button id="generateBtn" class="btn btn-primary" onclick="generate()">
+        ✨ 生成梦境图片
+      </button>
+    </div>
+
+    <div id="loading" class="loading">
+      <div class="spinner"></div>
+      <p>正在生成图片，请稍候...</p>
+    </div>
+
+    <div id="result" class="result" style="display:none;">
+      <h3>生成结果</h3>
+      <img id="resultImage" src="" alt="生成的图片">
+      <div id="methodTag" class="tag"></div>
+    </div>
+  </div>
+
+  <script>
+    // 检测SD状态
+    async function checkSD() {
+      try {
+        const res = await fetch('/api/check-sd');
+        const data = await res.json();
+        const statusEl = document.getElementById('status');
+        
+        if (data.available) {
+          statusEl.className = 'status online';
+          statusEl.textContent = '✅ ' + data.message;
+        } else {
+          statusEl.className = 'status offline';
+          statusEl.textContent = '❌ ' + data.message;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // 生成图片
+    async function generate() {
+      const prompt = document.getElementById('prompt').value.trim();
+      if (!prompt) {
+        alert('请输入梦境描述！');
+        return;
+      }
+
+      const btn = document.getElementById('generateBtn');
+      const loading = document.getElementById('loading');
+      const result = document.getElementById('result');
+
+      btn.disabled = true;
+      loading.classList.add('show');
+      result.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt })
+        });
+        
+        const data = await res.json();
+
+        if (data.success) {
+          document.getElementById('resultImage').src = data.image;
+          document.getElementById('methodTag').textContent = data.method;
+          result.style.display = 'block';
+        } else {
+          alert('生成失败: ' + data.error);
+        }
+      } catch (e) {
+        alert('请求失败: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        loading.classList.remove('show');
+      }
+    }
+
+    // 页面加载时检测SD
+    checkSD();
+    setInterval(checkSD, 10000); // 每10秒检测一次
+  </script>
+</body>
+</html>

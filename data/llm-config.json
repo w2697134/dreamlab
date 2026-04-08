@@ -1,0 +1,10 @@
+{
+  "failoverEnabled": false,
+  "primaryProvider": "qwen",
+  "backupProvider": "kimi",
+  "updatedAt": "2026-04-03T14:38:09.945Z",
+  "name": "千问 (Qwen)",
+  "url": "http://lmstudio.vip.cpolar.cn/v1",
+  "model": "qwen3.5-9b",
+  "isAvailable": true
+}

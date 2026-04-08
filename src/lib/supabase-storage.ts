@@ -1,0 +1,221 @@
+import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from './supabase-admin';
+
+// 创建 Supabase 客户端（用于存储）
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.COZE_SUPABASE_URL || '';
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.COZE_SUPABASE_ANON_KEY || '';
+
+// 检查环境变量
+if (!supabaseUrl || !supabaseKey) {
+  console.error('[Supabase Storage] 缺少必要的环境变量: NEXT_PUBLIC_SUPABASE_URL/COZE_SUPABASE_URL 或 NEXT_PUBLIC_SUPABASE_ANON_KEY/COZE_SUPABASE_ANON_KEY');
+}
+
+const supabase = createClient(supabaseUrl || 'http://placeholder', supabaseKey || 'placeholder');
+
+// 使用 admin 客户端绕过 RLS
+const useAdmin = !!process.env.COZE_SUPABASE_SERVICE_ROLE_KEY;
+
+const BUCKET_NAME = 'dream-images';
+
+/**
+ * 上传图片到 Supabase Storage
+ * @param base64Image base64 编码的图片
+ * @param fileName 文件名
+ * @returns 图片的公开 URL
+ */
+export async function uploadImage(base64Image: string, fileName: string): Promise<string> {
+  try {
+    // 移除 base64 前缀
+    const base64Data = base64Image.replace(/^data:image\/\w+;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+    
+    // 上传到 Supabase Storage（使用 admin 客户端绕过 RLS）
+    const client = useAdmin ? supabaseAdmin : supabase;
+    const { data, error } = await client
+      .storage
+      .from(BUCKET_NAME)
+      .upload(fileName, buffer, {
+        contentType: 'image/png',
+        upsert: false,
+      });
+    
+    if (error) {
+      console.error('[Supabase Storage] 上传失败:', error);
+      throw error;
+    }
+    
+    // 获取公开 URL
+    const { data: { publicUrl } } = supabase
+      .storage
+      .from(BUCKET_NAME)
+      .getPublicUrl(fileName);
+    
+    console.log('[Storage] 上传: ' + publicUrl.split('/').pop()?.substring(0, 20) + '...');
+    return publicUrl;
+  } catch (error) {
+    console.error('[Supabase Storage] 上传错误:', error);
+    throw error;
+  }
+}
+
+/**
+ * 删除图片
+ * @param fileName 文件名
+ */
+export async function deleteImage(fileName: string): Promise<void> {
+  try {
+    const { error } = await supabase
+      .storage
+      .from(BUCKET_NAME)
+      .remove([fileName]);
+    
+    if (error) {
+      console.error('[Supabase Storage] 删除失败:', error);
+      throw error;
+    }
+    
+    console.log('[Supabase Storage] 删除成功:', fileName);
+  } catch (error) {
+    console.error('[Supabase Storage] 删除错误:', error);
+    throw error;
+  }
+}
+
+/**
+ * 生成唯一的文件名
+ */
+export function generateFileName(userId: string | undefined, suffix: string): string {
+  const timestamp = Date.now();
+  const userPrefix = userId ? `${userId}/` : 'anonymous/';
+  return `${userPrefix}${timestamp}-${suffix}.png`;
+}
+
+/**
+ * 清理指定时间前的草稿数据（图片 + 数据库记录）
+ * @param hoursAgo 几小时前的数据需要清理
+ */
+export async function cleanupOldDraftImages(hoursAgo: number = 1): Promise<void> {
+  try {
+    const cutoffTime = Date.now() - (hoursAgo * 60 * 60 * 1000);
+    const cutoffDate = new Date(cutoffTime).toISOString();
+    
+    console.log(`[清理] 开始清理 ${hoursAgo}小时前（${cutoffDate}）的草稿数据...`);
+    
+    // ========== 1. 清理 Storage 中的图片和视频 ==========
+    const { data: files, error: listError } = await supabaseAdmin
+      .storage
+      .from(BUCKET_NAME)
+      .list('', { limit: 1000 });
+    
+    if (listError) {
+      console.error('[清理] 获取文件列表失败:', listError);
+    } else if (files && files.length > 0) {
+      const filesToDelete: string[] = [];
+      
+      for (const file of files) {
+        // 使用更精确的正则，从开头匹配时间戳（文件名格式: timestamp-random.png）
+        const match = file.name.match(/^(\d+)-/);
+        if (match) {
+          const fileTime = parseInt(match[1]);
+          if (fileTime < cutoffTime) {
+            filesToDelete.push(file.name);
+          }
+        }
+      }
+      
+      if (filesToDelete.length > 0) {
+        const { error: deleteError } = await supabaseAdmin
+          .storage
+          .from(BUCKET_NAME)
+          .remove(filesToDelete);
+        
+        if (deleteError) {
+          console.error('[清理] 删除文件失败:', deleteError);
+        } else {
+          console.log(`[清理] 成功删除 ${filesToDelete.length} 个文件（图片/视频）`);
+        }
+      }
+    }
+    
+    // ========== 2. 清理数据库中的草稿梦境（未完成的） ==========
+    // 删除 created_at 在 cutoffTime 之前且没有 collection_id 的梦境（草稿）
+    const { data: draftDreams, error: draftError } = await supabaseAdmin
+      .from('dreams')
+      .select('id, image_url, video_url')
+      .is('collection_id', null)
+      .lt('created_at', cutoffDate);
+    
+    if (draftError) {
+      console.error('[清理] 查询草稿梦境失败:', draftError);
+    } else if (draftDreams && draftDreams.length > 0) {
+      const dreamIds = draftDreams.map(d => d.id);
+      
+      // 删除草稿梦境记录
+      const { error: deleteDreamsError } = await supabaseAdmin
+        .from('dreams')
+        .delete()
+        .in('id', dreamIds);
+      
+      if (deleteDreamsError) {
+        console.error('[清理] 删除草稿梦境失败:', deleteDreamsError);
+      } else {
+        console.log(`[清理] 成功删除 ${draftDreams.length} 条草稿梦境记录`);
+      }
+    }
+    
+    // ========== 3. 清理空的梦境集 ==========
+    const { data: emptyCollections, error: collError } = await supabaseAdmin
+      .from('dream_collections')
+      .select('id')
+      .lt('created_at', cutoffDate)
+      .eq('image_count', 0);
+    
+    if (collError) {
+      console.error('[清理] 查询空梦境集失败:', collError);
+    } else if (emptyCollections && emptyCollections.length > 0) {
+      const collIds = emptyCollections.map(c => c.id);
+      
+      const { error: deleteCollError } = await supabaseAdmin
+        .from('dream_collections')
+        .delete()
+        .in('id', collIds);
+      
+      if (deleteCollError) {
+        console.error('[清理] 删除空梦境集失败:', deleteCollError);
+      } else {
+        console.log(`[清理] 成功删除 ${emptyCollections.length} 个空梦境集`);
+      }
+    }
+    
+    console.log(`[清理] 清理完成`);
+  } catch (error) {
+    console.error('[清理] 清理出错:', error);
+  }
+}
+
+// 启动定时清理（每1小时执行一次）
+let cleanupInterval: ReturnType<typeof setInterval> | null = null;
+
+export function startCleanupScheduler(hours: number = 1): void {
+  if (cleanupInterval) {
+    clearInterval(cleanupInterval);
+  }
+  
+  // 立即执行一次
+  cleanupOldDraftImages(hours);
+  
+  // 每小时执行一次
+  cleanupInterval = setInterval(() => {
+    cleanupOldDraftImages(hours);
+  }, hours * 60 * 60 * 1000);
+  
+  console.log(`[清理] 定时清理已启动，每 ${hours} 小时清理一次旧图片`);
+}
+
+export function stopCleanupScheduler(): void {
+  if (cleanupInterval) {
+    clearInterval(cleanupInterval);
+    cleanupInterval = null;
+    console.log('[清理] 定时清理已停止');
+  }
+}

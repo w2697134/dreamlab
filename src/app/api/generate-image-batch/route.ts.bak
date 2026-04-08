@@ -1,0 +1,1566 @@
+import { NextRequest } from 'next/server';
+import { LLMClient, Config, HeaderUtils, S3Storage } from 'coze-coding-dev-sdk';
+import { invokeQwen } from '@/lib/qwen-client';
+import { POLISH_PROMPT, IMG2IMG_POLISH_PROMPT, DREAM_STYLES } from '@/lib/ai-config';
+import { 
+  checkSDAvailability, 
+  getModelForStyle, 
+  switchSDModel, 
+  convertAIModelToArtStyle, 
+  selectSDInstanceByStyle, 
+  getNextInstanceByStyle, 
+  resetRoundRobinIndex,
+  selectSDTarget,         // 核心选择函数
+  getAvailableInstances,  // 获取可用实例
+  detectPromptType,       // 检测提示词类型
+  getTargetModel,         // 获取目标模型
+  getCurrentSDModel,     // 获取当前模型
+  SDModel,                // 模型类型
+  SDInstance,             // 实例类型
+} from '@/lib/sd-config';
+import { getSupabaseClient } from '@/storage/database/supabase-client';
+import fs from 'fs';
+import path from 'path';
+
+// 模型匹配检查函�?
+const isModelMatch = (currentModel: string | null, targetModel: SDModel): boolean => {
+  if (!currentModel) return false;
+  const lowerCurrent = currentModel.toLowerCase();
+  const targetName = targetModel.file.toLowerCase().replace('.safetensors', '');
+  return lowerCurrent.includes(targetName);
+};
+
+// 延迟函数 - 降低API调用速率
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// 本地存储路径
+const LOCAL_STORAGE_PATH = path.join(process.cwd(), 'public', 'generated-images');
+
+// 确保本地存储目录存在
+function ensureLocalStorageDir(): void {
+  if (!fs.existsSync(LOCAL_STORAGE_PATH)) {
+    fs.mkdirSync(LOCAL_STORAGE_PATH, { recursive: true });
+    console.log('[本地存储] 创建目录:', LOCAL_STORAGE_PATH);
+  }
+}
+
+// 保存图片到本地（使用异步写入避免阻塞�?
+async function saveImageLocal(base64Image: string, fileName: string): Promise<string> {
+  ensureLocalStorageDir();
+  
+  const filePath = path.join(LOCAL_STORAGE_PATH, fileName);
+  const imageBuffer = Buffer.from(base64Image, 'base64');
+  
+  // 使用异步写入避免阻塞事件循环
+  await fs.promises.writeFile(filePath, imageBuffer);
+  console.log('[本地存储] 图片已保�?', filePath);
+  
+  // 返回可访问的 URL
+  return `/generated-images/${fileName}`;
+}
+
+// 并行保存多张图片
+async function saveImagesParallel(
+  images: Array<{ base64: string; fileName: string; index: number }>
+): Promise<Map<number, string>> {
+  const results = new Map<number, string>();
+  
+  await Promise.all(
+    images.map(async ({ base64, fileName, index }) => {
+      try {
+        const url = await saveImageLocal(base64, fileName);
+        results.set(index, url);
+      } catch (error) {
+        console.error(`[并行保存] 图片 ${index} 保存失败:`, error);
+        throw error;
+      }
+    })
+  );
+  
+  return results;
+}
+
+// 初始化存储（如果配置了环境变量则使用 S3，否则使用本地存储）
+const storage = process.env.COZE_BUCKET_ENDPOINT_URL && process.env.COZE_BUCKET_NAME 
+  ? new S3Storage({
+      endpointUrl: process.env.COZE_BUCKET_ENDPOINT_URL,
+      accessKey: "",
+      secretKey: "",
+      bucketName: process.env.COZE_BUCKET_NAME,
+      region: "cn-beijing",
+    })
+  : null;
+
+// 获取梦境会话历史
+async function getDreamSessionHistory(sessionId: string, token: string) {
+  if (!sessionId) return null;
+  
+  try {
+    const client = getSupabaseClient(token);
+    const { data: session, error } = await client
+      .from("dream_sessions")
+      .select("*")
+      .eq("id", sessionId)
+      .single();
+    
+    if (error || !session) {
+      console.log('[会话] 未找到会�?', sessionId);
+      return null;
+    }
+    
+    return {
+      prompt_history: session.prompt_history ? JSON.parse(session.prompt_history) : [],
+      image_history: session.image_history ? JSON.parse(session.image_history) : [],
+      latest_prompt: session.latest_prompt,
+      image_count: session.image_count || 0,
+    };
+  } catch (error) {
+    console.error('[会话] 获取会话历史失败:', error);
+    return null;
+  }
+}
+
+// 构建关联上下文（用于润色时保持图片间的连贯性）
+function buildContextSummary(sessionHistory: {
+  prompt_history: Array<{ prompt: string; imageUrl?: string; timestamp: number }>;
+  image_history: string[];
+  image_count: number;
+}) {
+  if (!sessionHistory || sessionHistory.prompt_history.length === 0) {
+    return null;
+  }
+  
+  // 提取之前的提示词作为上下�?
+  const previousPrompts = sessionHistory.prompt_history.map((h, i) => 
+    `【图${i + 1}�? ${h.prompt}`
+  ).join('\n');
+  
+  return {
+    summary: `这是梦境创作的延续。当前已生成 ${sessionHistory.image_count} 张图片。`,
+    previousPrompts,
+    previousImagesCount: sessionHistory.image_history.length,
+  };
+}
+
+// 检�?SD API 是否可用
+async function isSDAvailable(): Promise<boolean> {
+  const available = await getAvailableInstances();
+  return available.length > 0;
+}
+
+// 中文翻译成英文（用于 SD�?
+async function translateToEnglish(chinesePrompt: string, customHeaders?: Record<string, string>): Promise<string> {
+  try {
+    const messages = [
+      { 
+        role: 'system' as const, 
+        content: `你是一个专业的英文翻译助手。将用户输入的中文梦境描述精准翻译成英文，保留以下元素：
+1. 核心画面描述（场景、人物、物品）
+2. 光线氛围（dawn/morning/noon/dusk/night/midnight�?
+3. 情绪基调（peaceful/mysterious/warm/melancholy/magical/lonely�?
+4. 艺术风格关键词（如果提到�?
+5. 视角描述（close/medium/far/bird's eye/worm's eye view�?
+6. 【重�?- 自动识别角色名�?
+   使用你的知识库自动识别角色名（动漫、游戏、影视角色）�?
+   - 检测模式："国漫XXX"�?动漫XXX"�?日漫XXX"�?游戏XXX"�?XX角色"
+   - 你认识的角色：保留英�?罗马音名�?+ 出处
+   - 不认识的角色：保留拼�?+ 合理推测
+   - 不要字面翻译角色名（小七≠little seven�?
+   - 小七 -> Xiao Qi (Chinese anime character)
+   - 小舞 -> Xiao Wu (Soul Land character)
+
+翻译规则�?
+- 只输出英文翻译，不要解释
+- 保留中文中的意象和比喻，用英文重新表�?
+- 添加适合的英文形容词增强画面�?
+- 避免翻译括号内的技术性说明（�?电影级构�?等）
+- 保持简洁，通常20-80个英文单�?
+- 动漫角色用英�?罗马音表示，并注明角色来源以增强识别
+
+示例�?
+输入：在迷雾笼罩的古老森林中，一束晨曦穿透树叶，照亮了漂浮的萤火�?
+输出：A serene ancient forest shrouded in mist, morning light piercing through leaves, illuminating floating fireflies, ethereal atmosphere, peaceful mood, cinematic composition, soft focus
+
+输入：八重神子和她的男朋友在接吻
+输出：Yae Miko (Genshin Impact character with pink hair and fox ears) kissing with her boyfriend, romantic scene, both characters in frame, close-up view, warm lighting, intimate atmosphere` 
+      },
+      { 
+        role: 'user' as const, 
+        content: `翻译以下中文梦境描述为英文（只输出英文）：\n\n${chinesePrompt}` 
+      }
+    ];
+
+    // 添加延迟降低API调用速率
+    await delay(200);
+
+    const response = await invokeQwen(messages, {
+      model: 'qwen3.5 9b',
+      temperature: 0.5, // 适度创造性，允许AI识别角色
+    });
+    
+    let translated = response.content.trim();
+    
+    // 清理输出：移除可能的引号、前后空�?
+    translated = translated.replace(/^["']|["']$/g, '').trim();
+    
+    // 如果翻译失败或返回空，使用原文（SD 也可以处理一些中文）
+    if (!translated || translated === chinesePrompt) {
+      console.warn('[翻译] 翻译失败或无变化，使用原文');
+      return chinesePrompt;
+    }
+    
+    console.log('[翻译] 中文->英文:', chinesePrompt.substring(0, 30) + '...', '=>', translated.substring(0, 50) + '...');
+    return translated;
+  } catch (error) {
+    console.error('[翻译] 翻译API错误:', error);
+    // 翻译失败时返回原�?
+    return chinesePrompt;
+  }
+}
+
+// 文本润色函数（千�?qwen3.5-9b�? 支持会话历史关联
+async function polishPrompt(
+  prompt: string, 
+  customHeaders?: Record<string, string>, 
+  isImg2Img?: boolean,
+  sessionHistory?: { prompt_history: Array<{ prompt: string; imageUrl?: string }>; image_history: string[]; image_count: number } | null,
+  forceRealistic?: boolean // 强制写实风格
+): Promise<string> {
+  // 【强制写实】添加约束，禁止二次元风�?
+  const realisticConstraint = forceRealistic ? `\n\n【强制写实约�?- 绝对禁止】\n⚠️ 严格禁止添加以下任何二次�?卡�?动漫风格词汇！\n�?禁止：anime, manga, cartoon, comic, 2d, flat style, toon, cel shading, anime style, cartoon style, manga style\n�?禁止：anime girl, anime boy, anime character, anime scene, chibi, cute anime\n�?禁止：semi-realistic, 2.5d, illustration style, artbook style\n�?必须：photorealistic, realistic photography, real photo, natural lighting, realistic texture\n�?如果不确定风格，保持中性描述，不要添加任何风格限定词` : '';
+  
+  // 构建会话历史上下�?
+  let contextHint = '';
+  if (sessionHistory && sessionHistory.prompt_history.length > 0) {
+    const previousPrompts = sessionHistory.prompt_history.map((h, i) => 
+      `【已生成�?{i + 1}�? ${h.prompt}`
+    ).join('\n');
+    
+    contextHint = `\n\n【重�?故事连贯性】这是梦境创作的延续。当前梦境已�?${sessionHistory.prompt_history.length} 张图片：
+${previousPrompts}
+
+【创作要求�?
+1. 新图片必须与已有图片保持风格、色彩、氛围的一致�?
+2. 如果有连续叙事需求（�?然后"�?接着"�?之后"），需要承接前面的画面自然过渡
+3. 保持人物外貌、服装、场景元素的一致�?
+4. 保持光线、色调的连贯（如第一张是黄昏，后面也应是黄昏或自然过渡到夜晚�?
+5. 可以发展情节，但必须合理衔接`;
+  }
+  
+  // 根据是否为图生图模式选择不同的提示词模板
+  const basePrompt = isImg2Img ? IMG2IMG_POLISH_PROMPT : POLISH_PROMPT;
+  const systemPrompt = basePrompt + contextHint + realisticConstraint;
+  
+  try {
+    const client = new LLMClient(new Config(), customHeaders);
+    
+    const messages = [
+      { role: 'system' as const, content: systemPrompt },
+      { role: 'user' as const, content: prompt }
+    ];
+
+    // 添加延迟降低API调用速率
+    await delay(200);
+
+    const response = await client.invoke(messages, {
+      model: 'qwen3.5-9b',
+      temperature: 0.7,
+    });
+    
+    let polished = response.content.trim();
+    
+    // 【强制写实】润色后再次清理二次元词�?
+    if (forceRealistic) {
+      // 需要清理的二次元相关词�?
+      const animeKeywordsToRemove = [
+        'anime style', 'anime art', 'anime girl', 'anime boy', 'anime character', 'anime scene',
+        'manga style', 'manga art', 'cartoon style', 'cartoon art',
+        '2d style', 'flat style', 'toon', 'cel shading',
+        'chibi', 'semi-realistic', '2.5d',
+        'illustration style', 'artbook style', 'comic style',
+      ];
+      
+      let cleanedPrompt = polished;
+      animeKeywordsToRemove.forEach(keyword => {
+        const regex = new RegExp(`[,;\\s]*${keyword}[,;\\s]*`, 'gi');
+        cleanedPrompt = cleanedPrompt.replace(regex, ', ');
+      });
+      
+      // 清理多余逗号和空�?
+      cleanedPrompt = cleanedPrompt.replace(/,\\s*,/g, ',').replace(/^,\\s*/, '').replace(/,\\s*$/, '').trim();
+      
+      if (cleanedPrompt !== polished) {
+        console.log(`[润色] 写实模式：已清理二次元词汇`);
+        console.log(`[润色] 清理�? ${polished.substring(0, 100)}...`);
+        console.log(`[润色] 清理�? ${cleanedPrompt.substring(0, 100)}...`);
+        polished = cleanedPrompt;
+      }
+    }
+    
+    console.log(`[润色] 会话关联: ${sessionHistory?.prompt_history.length || 0} 张历史图片`);
+    console.log(`[润色] 强制写实: ${forceRealistic ? '�?�? : '�?}`);
+    return polished;
+  } catch (error) {
+    console.error('[润色] 千问API润色失败:', error);
+    return prompt;
+  }
+}
+
+// 仅SD生成（不上传），返回base64
+async function generateImageSDOnly(
+  prompt: string, 
+  finalArtStyle?: string,
+  userInput?: string,
+  selectedKeywords?: string[],
+  customHeaders?: Record<string, string>
+): Promise<{ base64Image: string; modelName: string; instanceName: string }> {
+  // 【核心优化】使用智能路由，直接选择固定模型实例
+  const targetArtStyle = finalArtStyle === 'default' || !finalArtStyle ? 'dreamy' : finalArtStyle;
+  const selectedInstance = await selectSDInstanceByStyle(targetArtStyle);
+  const sdApiUrl = selectedInstance.url;
+  
+  // 直接使用实例的固定模型（无需切换！）
+  const modelConfig = {
+    modelName: selectedInstance.fixedModelName,
+    modelFile: selectedInstance.fixedModelFile
+  };
+  
+  console.log(`[生图] 🚀 智能路由: ${selectedInstance.name} (${selectedInstance.fixedModelName})`);
+  console.log(`[生图] 📍 API URL: ${sdApiUrl}`);
+  console.log(`[生图] �?无需切换模型，直接生成！`);
+  
+  // ============================================
+  // ⚠️  重要：场景识别与处理逻辑 - 请勿轻易修改�?
+  // 如需修改，请先询问用�?
+  // ============================================
+  
+  // �?】二次元场景识别关键�?- 严格限制�?
+  // 除非明确提到二次元角色或用户要求，否则不使用二次�?
+  const ANIME_DETECTION_KEYWORDS = [
+    // ============== 只有明确二次元角色才触发 ==============
+    
+    // 特定角色 - 原神
+    'yae miko', 'raiden shogun', 'nahida', 'furina', 'nilou', 'kokomi',
+    '八重神子', '雷电将军', '纳西�?, '芙宁�?, '妮露', '珊瑚宫心�?,
+    'zhongli', 'venti', 'xiao', 'ganyu', 'ayaka', 'hutao',
+    '钟离', '温迪', '�?, '甘雨', '神里绫华', '胡桃',
+    'kazuha', 'scaramouche', 'wanderer', 'childe',
+    '枫原万叶', '散兵', '流浪�?, '达达利亚',
+    
+    // 特定角色 - 其他游戏/动漫
+    'kasugano sora', '春日野穹',
+    'hatsune miku', '初音未来',
+    'rem', 'ram', 're:zero', '蕾姆', '拉姆',
+    'zero two', '02', 'darling in the franxx',
+    'mai sakurajima', '樱岛麻衣',
+    
+    // ============== 用户明确要求二次�?==============
+    'anime style', '动漫风格', '二次元风�?,
+    'anime art', '动漫艺术',
+    'manga style', '漫画风格',
+    
+    // ============== 特定二次元游�?==============
+    'genshin impact', '原神',
+  ];
+  
+  // �?】写实场景识别关键词 - 用于判断是否需要写实风格处�?
+  const REALISTIC_DETECTION_KEYWORDS = [
+    // 写实风格关键�?
+    'realistic', '写实', 'real', '真实',
+    'photorealistic', '照片�?, 'photo', '照片',
+    'photography', '摄影', 'camera', '相机',
+    'realistic style', '写实风格',
+    'photorealistic style', '照片级风�?,
+    
+    // 真实人物相关
+    'real person', '真实人物', 'real man', '真实男人',
+    'real woman', '真实女人', 'real boy', '真实男孩',
+    'real girl', '真实女孩', 'actual person', '实际人物',
+    'portrait', '人像', 'portrait photo', '人像摄影',
+    'headshot', '头像', 'facial portrait', '面部肖像',
+    
+    // 真实场景
+    'real scene', '真实场景', 'real world', '真实世界',
+    'realistic scene', '写实场景', 'realistic background', '写实背景',
+    'realistic landscape', '写实风景', 'realistic environment', '写实环境',
+    
+    // 摄影风格
+    'shot on', '拍摄�?, 'canon', '佳能', 'nikon', '尼康',
+    'sony', '索尼', 'dslr', '单反', 'mirrorless', '微单',
+    '85mm', '50mm', '35mm', 'focal length', '焦距',
+    'aperture', '光圈', 'shutter speed', '快门速度',
+    'depth of field', '景深', 'bokeh', '虚化',
+    'natural lighting', '自然�?, 'sunlight', '阳光',
+    'studio lighting', '影棚�?, 'softbox', '柔光�?,
+    
+    // 材质与细�?
+    'skin texture', '皮肤纹理', 'skin pores', '毛孔',
+    'hair texture', '头发纹理', 'fabric texture', '织物纹理',
+    'ultra realistic', '超写�?, 'hyper realistic', '超写�?,
+    'high detail', '高细�?, 'intricate details', '复杂细节',
+    
+    // 生活场景
+    'daily life', '日常生活', 'life scene', '生活场景',
+    'street photo', '街拍', 'street photography', '街头摄影',
+    'documentary', '纪实', 'candid', '抓拍',
+    
+    // 排除二次元风�?
+    // (注意：这些词已经在二次元关键词里，这里不需要重�?
+  ];
+  
+  // �?】判断场景类型（关键词优先，AI辅助�?
+  // 第一步：关键词匹�?
+  let isAnimeScene = ANIME_DETECTION_KEYWORDS.some(keyword => 
+    prompt.toLowerCase().includes(keyword.toLowerCase())
+  );
+  
+  let isRealisticScene = !isAnimeScene; // 默认偏向写实
+  
+  console.log(`[场景识别] 关键词匹�?- 二次�? ${isAnimeScene ? '�?�? : '�?�?} | 写实: ${isRealisticScene ? '�?�? : '�?�?}`);
+  
+  // 第二步：如果关键词没匹配到二次元，让AI来分析文字描�?
+  if (!isAnimeScene) {
+    try {
+      console.log(`[场景识别] 关键词未匹配到二次元，调用AI分析文字描述...`);
+      
+      // 构建AI判断的prompt
+      const aiAnalysisPrompt = `分析以下文字描述，判断这个描述更适合二次元风格还是写实风格：
+
+描述�?${prompt}"
+
+请只回答JSON格式�?
+{
+  "isAnime": true/false,
+  "isRealistic": true/false,
+  "reason": "简单原�?
+}
+
+判断标准�?
+- 如果描述包含动漫、游戏角色、二次元风格�?�?isAnime=true
+- 如果描述包含真实人物、摄影、写实风格词 �?isRealistic=true
+- 如果描述模糊，偏向isRealistic=true`;
+      
+      // 调用AI分析（这里我们用一个简化的实现，或者调用现有的AI API�?
+      // 暂时先用一个模拟的AI判断逻辑，避免额外API调用
+      // 实际上可以调�?/api/analyze-prompt 或其他AI接口
+      
+      // 简单的AI模拟：如果描述里有一些暗示词，稍微调整判�?
+      const lowerPrompt = prompt.toLowerCase();
+      const aiSuggestAnime = lowerPrompt.includes('卡�?) || lowerPrompt.includes('动画') || 
+                             lowerPrompt.includes('游戏角色') || lowerPrompt.includes('漫画');
+      
+      if (aiSuggestAnime) {
+        console.log(`[场景识别] AI分析认为可能适合二次元`);
+        // 这里可以设置 isAnimeScene = true，但先保持谨�?
+        // 暂时还是优先关键词，AI只是参�?
+      }
+      
+    } catch (error) {
+      console.error(`[场景识别] AI分析失败，使用关键词结果:`, error);
+    }
+  }
+  
+  // 第三步：最终判断确�?
+  if (!isAnimeScene) {
+    // 不是二次元，检查是否有明确写实关键�?
+    const hasExplicitRealistic = REALISTIC_DETECTION_KEYWORDS.some(keyword => 
+      prompt.toLowerCase().includes(keyword.toLowerCase())
+    );
+    if (hasExplicitRealistic) {
+      isRealisticScene = true;
+      console.log(`[场景识别] 检测到明确写实关键词`);
+    } else {
+      // 没有明确关键词，但也不是二次元，默认按写实处�?
+      isRealisticScene = true;
+      console.log(`[场景识别] 非二次元，默认按写实处理`);
+    }
+  }
+  
+  // 最终确�?
+  if (isAnimeScene) {
+    console.log(`[场景识别] 最终判�? 二次元场�?✅`);
+  } else if (isRealisticScene) {
+    console.log(`[scene识别] 最终判�? 写实场景 ✅`);
+  } else {
+    console.log(`[场景识别] 最终判�? 通用场景（按写实处理）✅`);
+    isRealisticScene = true; // 兜底：通用场景也按写实处理
+  }
+  
+  // �?】智能Sampler选择
+  let selectedSampler = 'DPM++ 2M Karras'; // 默认使用DPM++
+  let hasCharacter = false;
+  
+  if (isAnimeScene) {
+    // 只有二次元场景才检测特定角�?
+    const CHARACTER_DETECTION_KEYWORDS = [
+      // 原神角色
+      'yae miko', 'raiden shogun', 'nahida', 'furina', 'nilou', 'kokomi',
+      '八重神子', '雷电将军', '纳西�?, '芙宁�?, '妮露', '珊瑚宫心�?,
+      'zhongli', 'venti', 'xiao', 'ganyu', 'ayaka', 'hutao',
+      '钟离', '温迪', '�?, '甘雨', '神里绫华', '胡桃',
+      // 其他特定角色
+      'kasugano sora', '春日野穹',
+      'hatsune miku', '初音未来',
+      'rem', 'ram', '蕾姆', '拉姆'
+    ];
+    
+    hasCharacter = CHARACTER_DETECTION_KEYWORDS.some(keyword => 
+      prompt.toLowerCase().includes(keyword.toLowerCase())
+    );
+    
+    selectedSampler = hasCharacter ? 'DDIM' : 'DPM++ 2M Karras';
+    console.log(`[生图] 二次元场景Sampler选择: ${selectedSampler} (${hasCharacter ? '检测到特定角色，用DDIM稳定' : '无特定角色，用DPM++柔和'})`);
+  } else if (isRealisticScene) {
+    // 写实场景使用更适合写实的Sampler
+    selectedSampler = 'DPM++ 2M Karras'; // 写实场景也用DPM++，效果好
+    console.log(`[生图] 写实场景Sampler选择: ${selectedSampler}`);
+  } else {
+    console.log(`[生图] 通用场景，使用默认Sampler: ${selectedSampler}`);
+  }
+  
+  // �?】风格词处理 - 根据场景类型添加
+  let finalPrompt = prompt;
+  
+  if (isAnimeScene) {
+    // ========== 二次元场景处�?==========
+    const animeStyleKeywords = ['anime style', 'masterpiece', 'best quality', 'ultra detailed'];
+    const hasAnimeStyle = animeStyleKeywords.some(k => finalPrompt.toLowerCase().includes(k.toLowerCase()));
+    
+    // 柔和风格关键�?- 让二次元画面更柔�?
+    const softStyleKeywords = ', soft lighting, gentle shading, smooth lines, delicate features, pastel colors, warm atmosphere';
+    
+    if (!hasAnimeStyle) {
+      // 强制放在最前面，这是Anything V5的关键触发器�?
+      finalPrompt = `masterpiece, best quality, ultra detailed, anime style${softStyleKeywords}, ${finalPrompt}`;
+      console.log('[生图] 二次元场景：强制添加二次元风格词和柔和风格到最前面');
+    } else {
+      // 即使有，也确保风格词在最前面，并添加柔和风格
+      if (!finalPrompt.toLowerCase().startsWith('masterpiece')) {
+        // 移除非开头的风格词，重新加在前面
+        let cleanedPrompt = finalPrompt;
+        animeStyleKeywords.forEach(keyword => {
+          const regex = new RegExp(`${keyword}[,\\s]*`, 'gi');
+          cleanedPrompt = cleanedPrompt.replace(regex, '');
+        });
+        finalPrompt = `masterpiece, best quality, ultra detailed, anime style${softStyleKeywords}, ${cleanedPrompt.trim()}`;
+        console.log('[生图] 二次元场景：重新排列二次元风格词到最前面，并添加柔和风格');
+      } else {
+        // 已经有风格词在前面，添加柔和风格
+        if (!finalPrompt.toLowerCase().includes('soft lighting')) {
+          finalPrompt = finalPrompt.replace('anime style', `anime style${softStyleKeywords}`);
+          console.log('[生图] 二次元场景：添加柔和风格关键�?);
+        }
+      }
+    }
+  } else if (isRealisticScene) {
+    // ========== 写实场景处理 ==========
+    const realisticStyleKeywords = ['photorealistic', 'realistic', 'photo', 'masterpiece', 'best quality', 'ultra detailed'];
+    const hasRealisticStyle = realisticStyleKeywords.some(k => finalPrompt.toLowerCase().includes(k.toLowerCase()));
+    
+    // 【写实场景】动作检测与增强
+    // 检测是否有动作动词，确保动作能被正确展�?
+    const ACTION_VERBS = [
+      // 基本动作
+      'fall', 'fell', 'fallen', '倒下', '掉落', '摔�?,
+      'hit', 'hitting', 'hit', '撞击', '碰撞', '�?, '击打',
+      'push', 'pushing', '�?, '推开',
+      'pull', 'pulling', '�?, '拉扯',
+      'throw', 'throwing', 'threw', '�?, '投掷',
+      'jump', 'jumping', 'jumped', '�?, '跳跃',
+      'run', 'running', 'ran', '�?, '奔跑',
+      'walk', 'walking', 'walked', '�?, '走路',
+      'stand', 'standing', 'stood', '�?, '站立',
+      'sit', 'sitting', 'sat', '�?, '坐下',
+      'lie', 'lying', 'lay', '�?, '躺下',
+      'kick', 'kicking', 'kicked', '�?,
+      'punch', 'punching', 'punched', '拳打',
+      'slap', 'slapping', 'slapped', '掌掴', '打耳光',
+      'grab', 'grabbing', 'grabbed', '�?, '抓住',
+      'hold', 'holding', 'held', '�?, '握住',
+      'lift', 'lifting', 'lifted', '�?, '举起',
+      'drop', 'dropping', 'dropped', '�?, '掉落',
+      'break', 'breaking', 'broke', 'broken', '打破', '折断',
+      'crash', 'crashing', 'crashed', '碰撞', '坠毁',
+      'explode', 'exploding', 'exploded', '爆炸',
+      'burn', 'burning', 'burned', '燃烧',
+      'swim', 'swimming', 'swam', '游泳',
+      'fly', 'flying', 'flew', '�?, '飞翔',
+      'dance', 'dancing', 'danced', '跳舞',
+      'sing', 'singing', 'sang', '唱歌',
+      'laugh', 'laughing', 'laughed', '�?, '大笑',
+      'cry', 'crying', 'cried', '�?, '哭泣',
+      'shout', 'shouting', 'shouted', '�?, '大喊',
+      'talk', 'talking', 'talked', '说话', '交谈',
+      'fight', 'fighting', 'fought', '打架', '战斗',
+      'hug', 'hugging', 'hugged', '拥抱',
+      'kiss', 'kissing', 'kissed', '亲吻',
+      'wave', 'waving', 'waved', '挥手',
+      'clap', 'clapping', 'clapped', '鼓掌',
+      'point', 'pointing', 'pointed', '�?, '指向',
+      'open', 'opening', 'opened', '打开',
+      'close', 'closing', 'closed', '关闭',
+      'chase', 'chasing', 'chased', '追�?, '追赶',
+      'escape', 'escaping', 'escaped', '逃跑',
+      'attack', 'attacking', 'attacked', '攻击',
+      'defend', 'defending', 'defended', '防御',
+      'bend', 'bending', 'bent', '弯腰', '弯曲',
+      'stretch', 'stretching', 'stretched', '伸展',
+      'crouch', 'crouching', 'crouched', '�?, '蹲下',
+      'kneel', 'kneeling', 'knelt', '�?, '跪下',
+      'lean', 'leaning', 'leaned', '�?, '倚靠',
+      'climb', 'climbing', 'climbed', '�?, '攀�?,
+      'descend', 'descending', 'descended', '下降',
+      'rise', 'rising', 'rose', '上升',
+      'spin', 'spinning', 'spun', '旋转',
+      'twist', 'twisting', 'twisted', '扭转',
+      'shake', 'shaking', 'shook', '摇晃',
+      'nod', 'nodding', 'nodded', '点头',
+      'shake head', '摇头',
+      'smile', 'smiling', 'smiled', '微笑',
+      'frown', 'frowning', 'frowned', '皱眉',
+      'surprise', 'surprising', 'surprised', '惊讶',
+      'fear', 'fearing', 'feared', '害�?,
+      'anger', 'angry', '愤�?,
+      'happy', 'happiness', '快乐',
+      'sad', 'sadness', '悲伤',
+      
+      // 物体动作
+      'tree falling', '树倒了', '树倒下',
+      'building collapsing', '建筑倒塌',
+      'car crashing', '车撞�?, '车祸',
+      'glass breaking', '玻璃碎了',
+      'wind blowing', '风吹',
+      'rain falling', '下雨',
+      'snow falling', '下雪',
+      'fire burning', '火燃�?,
+      'water flowing', '水流',
+      'explosion', '爆炸',
+      
+      // 互动动作
+      'I hit him', '我撞�?, '我打�?,
+      'I push her', '我推�?,
+      'we fight', '我们打架',
+      'they dance', '他们跳舞',
+    ];
+    
+    // 检测是否有动作
+    const hasAction = ACTION_VERBS.some(verb => 
+      finalPrompt.toLowerCase().includes(verb.toLowerCase())
+    );
+    
+    console.log(`[动作检测] 写实场景是否包含动作: ${hasAction ? '�?�? : '�?�?}`);
+    
+    // 写实风格关键�?- 让画面更真实
+    const realisticStyleKeywordsAdd = ', realistic, photorealistic, ultra realistic, hyperrealistic, photograph, photo, 8k uhd, dslr, high quality, film grain';
+    
+    // 真实光影关键�?
+    const realisticLightingKeywords = ', natural lighting, volumetric lighting, cinematic lighting, dramatic lighting, soft shadows, rim light';
+    
+    // 真实材质关键�?
+    const realisticTextureKeywords = ', skin texture, pores, detailed skin, realistic hair, fabric texture';
+    
+    // 动作增强关键�?- 确保动作被正确展�?
+    let actionEnhanceKeywords = '';
+    if (hasAction) {
+      actionEnhanceKeywords = ', dynamic pose, action shot, motion blur, dynamic lighting, dramatic moment, peak action, perfect timing, capturing movement, high speed photography, stop action, dynamic composition';
+      console.log('[生图] 写实场景：检测到动作，添加动作增强关键词');
+    }
+    
+    if (!hasRealisticStyle) {
+      // 强制添加写实风格�?
+      finalPrompt = `masterpiece, best quality, ultra detailed, realistic, photorealistic${realisticStyleKeywordsAdd}${realisticLightingKeywords}${realisticTextureKeywords}${actionEnhanceKeywords}, ${finalPrompt}`;
+      console.log('[生图] 写实场景：强制添加写实风格词到最前面');
+    } else {
+      // 即使有，也确保风格词在最前面，并增强写实效果
+      if (!finalPrompt.toLowerCase().startsWith('masterpiece')) {
+        // 移除非开头的风格词，重新加在前面
+        let cleanedPrompt = finalPrompt;
+        realisticStyleKeywords.forEach(keyword => {
+          const regex = new RegExp(`${keyword}[,\\s]*`, 'gi');
+          cleanedPrompt = cleanedPrompt.replace(regex, '');
+        });
+        finalPrompt = `masterpiece, best quality, ultra detailed, realistic, photorealistic${realisticStyleKeywordsAdd}${realisticLightingKeywords}${realisticTextureKeywords}${actionEnhanceKeywords}, ${cleanedPrompt.trim()}`;
+        console.log('[生图] 写实场景：重新排列写实风格词到最前面');
+      } else {
+        // 已经有风格词在前面，检查是否需要增�?
+        if (!finalPrompt.toLowerCase().includes('skin texture')) {
+          finalPrompt = finalPrompt.replace('photorealistic', `photorealistic${realisticTextureKeywords}`);
+          console.log('[生图] 写实场景：添加真实材质关键词');
+        }
+        // 如果有动作但没有动作增强词，添加它们
+        if (hasAction && !finalPrompt.toLowerCase().includes('dynamic pose')) {
+          finalPrompt = finalPrompt.replace('photorealistic', `photorealistic${actionEnhanceKeywords}`);
+          console.log('[生图] 写实场景：添加动作增强关键词');
+        }
+      }
+    }
+  } else {
+    console.log('[生图] 通用场景：不添加特定风格�?);
+  }
+  
+  // ============================================
+  // ⚠️  重要：根据场景自动切换模�?- 请勿轻易修改�?
+  // 如需修改，请先询问用�?
+  // ============================================
+  
+  // �?】根据场景类型选择并切换模�?
+  let targetModelName = '';
+  let targetModelFile = '';
+  
+  if (isAnimeScene) {
+    // 二次元场景：使用 Anything V5.0
+    targetModelName = 'Anything V5.0';
+    targetModelFile = 'anything-v5.safetensors';
+    console.log(`[模型切换] 二次元场景，选择模型: ${targetModelName}`);
+  } else if (isRealisticScene) {
+    // 写实场景：使�?Realistic Vision V2.0
+    targetModelName = 'Realistic Vision V2.0';
+    targetModelFile = 'Realistic_Vision_V2.0-fp16-no-ema.safetensors';
+    console.log(`[模型切换] 写实场景，选择模型: ${targetModelName}`);
+  } else {
+    // 通用场景：保持当前模型不切换
+    console.log(`[模型切换] 通用场景，保持当前模型不切换`);
+  }
+  
+  // 如果确定了目标模型，就尝试切�?
+  if (targetModelFile) {
+    try {
+      console.log(`[模型切换] 正在切换�? ${targetModelName} (${targetModelFile})`);
+      const switchSuccess = await switchSDModel(sdApiUrl, targetModelFile);
+      if (switchSuccess) {
+        console.log(`[模型切换] 成功切换�? ${targetModelName} ✅`);
+      } else {
+        console.log(`[模型切换] 切换失败，使用当前模型继续`);
+      }
+    } catch (error) {
+      console.error(`[模型切换] 切换过程出错:`, error);
+      console.log(`[模型切换] 将使用当前模型继续`);
+    }
+  }
+  
+  // ============================================
+  // 模型切换逻辑结束
+  // ============================================
+  
+  // ============================================
+  // 场景识别与处理逻辑结束
+  // ============================================
+  
+  // �?】根据场景类型选择负面提示�?
+  let negativePrompt = '';
+  
+  if (isAnimeScene) {
+    // 二次元场景负面提示词：禁�?D、写实等效果
+    negativePrompt = 'ugly, blurry, low quality, bad anatomy, deformed, watermark, text, signature, bad hands, extra fingers, missing fingers, fused fingers, too many fingers, realistic, photorealistic, 3d render, bad art, worst quality, lowres, jpeg artifacts, error, cropped, out of frame, poorly drawn, mutation, duplicated, gross proportions, malformed limbs, missing arms, missing legs, extra arms, extra legs, fused fingers, too many fingers, long neck, username, artist name, 3d, semi-realistic, 2.5d, 3dcg, render, blender, maya, unity, unreal engine, plastic skin, wax figure, doll, mannequin, toy, figurine, statue, sculpture';
+  } else if (isRealisticScene) {
+    // 写实场景负面提示词：强力禁止二次元、卡通等效果
+    negativePrompt = 'ugly, blurry, low quality, bad anatomy, deformed, watermark, text, signature, bad hands, extra fingers, missing fingers, fused fingers, too many fingers, anime, cartoon, manga, comic, 2d, flat, 2d style, toon, cel shading, anime style, cartoon style, manga style, anime girl, anime boy, anime character, anime scene, bad art, worst quality, lowres, jpeg artifacts, error, cropped, out of frame, poorly drawn, mutation, duplicated, gross proportions, malformed limbs, missing arms, missing legs, extra arms, extra legs, fused fingers, too many fingers, long neck, username, artist name, plastic skin, wax figure, doll, mannequin, toy, figurine, statue, sculpture, 3d, semi-realistic, 2.5d, 3dcg, render, blender, maya, unity, unreal engine';
+    console.log('[负面提示词] 写实场景：强力禁止二次元风格');
+  } else {
+    // 通用场景负面提示词：基础的负面词
+    negativePrompt = 'ugly, blurry, low quality, bad anatomy, deformed, watermark, text, signature, bad hands, extra fingers, missing fingers, fused fingers, too many fingers, bad art, worst quality, lowres, jpeg artifacts, error, cropped, out of frame, poorly drawn, mutation, duplicated, gross proportions, malformed limbs, missing arms, missing legs, extra arms, extra legs, fused fingers, too many fingers, long neck, username, artist name';
+  }
+  
+  console.log(`[负面提示词] 场景类型: ${isAnimeScene ? '二次�? : isRealisticScene ? '写实' : '通用'}`);
+  
+  // 构造请求参�?
+  const requestBody: Record<string, unknown> = {
+    prompt: finalPrompt,
+    negative_prompt: negativePrompt,
+    steps: 30,
+    width: 1024,
+    height: 768,
+    cfg_scale: 7,
+    sampler_index: selectedSampler,
+  };
+  
+  console.log('[生图] 调用 SD txt2img API...');
+  
+  const response = await fetch(`${sdApiUrl}/sdapi/v1/txt2img`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!response.ok) {
+    throw new Error(`SD API 错误: ${response.status}`);
+  }
+
+  const data = await response.json();
+  
+  if (!data.images || data.images.length === 0) {
+    throw new Error('SD 未返回图�?);
+  }
+
+  return { base64Image: data.images[0], modelName: modelConfig.modelName, instanceName: selectedInstance.name };
+}
+
+// 仅上传图片（本地存储�?
+async function uploadImage(base64Image: string): Promise<{ imageUrl: string }> {
+  const timestamp = Date.now();
+  const randomStr = Math.random().toString(36).substring(2, 10);
+  const fileName = `dream_${timestamp}_${randomStr}.png`;
+
+  // 保存到本�?
+  const localUrl = await saveImageLocal(base64Image, fileName);
+  console.log('[上传] 本地保存完成, URL:', localUrl);
+  
+  // 构建完整 URL
+  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+  const host = process.env.COZE_PROJECT_DOMAIN_DEFAULT || 'localhost:5000';
+  const finalUrl = `${protocol}://${host.replace(/^https?:\/\//, '')}${localUrl}`;
+  
+  return { imageUrl: finalUrl };
+}
+
+// SD API txt2img 图片生成函数（模型已提前切换好）
+async function generateImageSD(
+  prompt: string, 
+  finalArtStyle?: string,
+  userInput?: string,
+  uploadedImages?: string[],
+  selectedKeywords?: string[],
+  customHeaders?: Record<string, string>
+): Promise<{ base64Image: string; method: string }> {
+  // 【核心优化】使用智能路�?
+  const targetArtStyle = finalArtStyle === 'default' || !finalArtStyle ? 'dreamy' : finalArtStyle;
+  const selectedInstance = await selectSDInstanceByStyle(targetArtStyle);
+  const sdApiUrl = selectedInstance.url;
+  
+  const sdStartTime = Date.now();
+  console.log(`\n[单图生成] 🚀 智能路由: ${selectedInstance.name}`);
+  console.log(`[单图生成] 📍 使用模型: ${selectedInstance.fixedModelName}`);
+  console.log(`[单图生成] �?无需切换模型！`);
+  
+  // 直接使用实例的固定模�?
+  const modelConfig = {
+    modelName: selectedInstance.fixedModelName,
+    modelFile: selectedInstance.fixedModelFile
+  };
+  
+  // 智能Sampler选择：有特定角色用DDIM（稳定），没特定角色用DPM++ 2M Karras（柔和）
+  const characterKeywords = [
+    // 原神角色
+    'yae miko', 'raiden shogun', 'nahida', 'furina', 'nilou', 'kokomi',
+    '八重神子', '雷电将军', '纳西�?, '芙宁�?, '妮露', '珊瑚宫心�?,
+    // 其他常见角色
+    'kasugano sora', 'sora', 'haruka', '春日野穹',
+    // 通用角色标识
+    'character', '角色', 'anime girl', 'anime boy', '游戏角色'
+  ];
+  
+  const hasCharacter = characterKeywords.some(keyword => 
+    prompt.toLowerCase().includes(keyword.toLowerCase())
+  );
+  
+  const selectedSampler = hasCharacter ? 'DDIM' : 'DPM++ 2M Karras';
+  console.log(`[生图] 智能Sampler选择: ${selectedSampler} (${hasCharacter ? '检测到角色，用DDIM稳定' : '无特定角色，用DPM++柔和'})`);
+  
+  // 确保提示词最前面有二次元风格词（Anything V5 触发�?- 必须放在最前面！）
+  let finalPrompt = prompt;
+  const animeStyleKeywords = ['anime style', 'masterpiece', 'best quality', 'ultra detailed'];
+  const hasAnimeStyle = animeStyleKeywords.some(k => finalPrompt.toLowerCase().includes(k.toLowerCase()));
+  
+  // 柔和风格关键�?- 让画面更柔和
+  const softStyleKeywords = ', soft lighting, gentle shading, smooth lines, delicate features, pastel colors, warm atmosphere';
+  
+  if (!hasAnimeStyle) {
+    // 强制放在最前面，这是Anything V5的关键触发器�?
+    finalPrompt = `masterpiece, best quality, ultra detailed, anime style${softStyleKeywords}, ${finalPrompt}`;
+    console.log('[生图] 强制添加二次元风格词和柔和风格到最前面');
+  } else {
+    // 即使有，也确保风格词在最前面，并添加柔和风格
+    if (!finalPrompt.toLowerCase().startsWith('masterpiece')) {
+      // 移除非开头的风格词，重新加在前面
+      let cleanedPrompt = finalPrompt;
+      animeStyleKeywords.forEach(keyword => {
+        const regex = new RegExp(`${keyword}[,\\s]*`, 'gi');
+        cleanedPrompt = cleanedPrompt.replace(regex, '');
+      });
+      finalPrompt = `masterpiece, best quality, ultra detailed, anime style${softStyleKeywords}, ${cleanedPrompt.trim()}`;
+      console.log('[生图] 重新排列二次元风格词到最前面，并添加柔和风格');
+    } else {
+      // 已经有风格词在前面，添加柔和风格
+      if (!finalPrompt.toLowerCase().includes('soft lighting')) {
+        finalPrompt = finalPrompt.replace('anime style', `anime style${softStyleKeywords}`);
+        console.log('[生图] 添加柔和风格关键�?);
+      }
+    }
+  }
+  
+  // 构造请求参�?
+  const requestBody: Record<string, unknown> = {
+    prompt: finalPrompt,
+    negative_prompt: 'ugly, blurry, low quality, bad anatomy, deformed, watermark, text, signature, bad hands, extra fingers, missing fingers, fused fingers, too many fingers, realistic, photorealistic, 3d render, bad art, worst quality, lowres, jpeg artifacts, error, cropped, out of frame, poorly drawn, mutation, duplicated, gross proportions, malformed limbs, missing arms, missing legs, extra arms, extra legs, fused fingers, too many fingers, long neck, username, artist name, 3d, semi-realistic, 2.5d, 3dcg, render, blender, maya, unity, unreal engine, plastic skin, wax figure, doll, mannequin, toy, figurine, statue, sculpture',
+    steps: 30,
+    width: 1024,
+    height: 768,
+    cfg_scale: 7,
+    sampler_index: selectedSampler,
+  };
+  
+  console.log('[生图] 调用 SD txt2img API...');
+  console.log('[生图] 参数:', { steps: 35, width: 1024, height: 768, cfg_scale: 14, sampler: 'DPM++ 2M SDE Karras' });
+  
+  const response = await fetch(`${sdApiUrl}/sdapi/v1/txt2img`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!response.ok) {
+    throw new Error(`SD API 错误: ${response.status}`);
+  }
+
+  const data = await response.json();
+  
+  if (!data.images || data.images.length === 0) {
+    throw new Error('SD 未返回图�?);
+  }
+
+  // SD API 返回 base64 编码的图�?
+  const base64Image = data.images[0];
+  
+  // 保存到本地存�?
+  console.log('[生图] 开始保存图片到本地...');
+  const timestamp = Date.now();
+  const randomStr = Math.random().toString(36).substring(2, 10);
+  const fileName = `dream_${timestamp}_${randomStr}.png`;
+  
+  const localUrl = await saveImageLocal(base64Image, fileName);
+  console.log('[生图] 本地保存完成, URL:', localUrl);
+  
+  // 构建完整 URL
+  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+  const host = process.env.COZE_PROJECT_DOMAIN_DEFAULT || 'localhost:5000';
+  const finalUrl = `${protocol}://${host.replace(/^https?:\/\//, '')}${localUrl}`;
+  
+  console.log(`[生图] SD生成成功！使用模�? ${modelConfig.modelName}`);
+  const sdEndTime = Date.now();
+  console.log(`[单图生成] 完成，耗时: ${(sdEndTime - sdStartTime).toFixed(0)}ms`);
+
+  // 返回 base64 而不�?URL，让上层统一处理保存
+  return { base64Image, method: `本地SD-${modelConfig.modelName}` };
+}
+
+// SD API 图生图函数（图生图时默认写实风格�?
+async function generateImageSDImg2Img(
+  prompt: string, 
+  sourceImages: string[], 
+  finalArtStyle?: string,
+  userInput?: string,
+  selectedKeywords?: string[]
+): Promise<{ base64Image: string; method: string }> {
+  // 【核心优化】使用智能路�?
+  // 图生图默认写实风�?
+  const targetArtStyle = finalArtStyle === 'default' || !finalArtStyle || finalArtStyle === 'realistic' 
+    ? 'realistic' 
+    : finalArtStyle;
+  const selectedInstance = await selectSDInstanceByStyle(targetArtStyle);
+  const sdApiUrl = selectedInstance.url;
+  
+  // 直接使用实例的固定模�?
+  const modelConfig = {
+    modelName: selectedInstance.fixedModelName,
+    modelFile: selectedInstance.fixedModelFile
+  };
+  
+  console.log(`[图生图] 🚀 智能路由: ${selectedInstance.name}`);
+  console.log(`[图生图] 📍 使用模型: ${selectedInstance.fixedModelName}`);
+  console.log(`[图生图] �?无需切换模型！`);
+  
+  // 智能Sampler选择：有特定角色用DDIM（稳定），没特定角色用DPM++ 2M Karras（柔和）
+  const characterKeywords = [
+    // 原神角色
+    'yae miko', 'raiden shogun', 'nahida', 'furina', 'nilou', 'kokomi',
+    '八重神子', '雷电将军', '纳西�?, '芙宁�?, '妮露', '珊瑚宫心�?,
+    // 其他常见角色
+    'kasugano sora', 'sora', 'haruka', '春日野穹',
+    // 通用角色标识
+    'character', '角色', 'anime girl', 'anime boy', '游戏角色'
+  ];
+  
+  const hasCharacter = characterKeywords.some(keyword => 
+    prompt.toLowerCase().includes(keyword.toLowerCase())
+  );
+  
+  const selectedSampler = hasCharacter ? 'DDIM' : 'DPM++ 2M Karras';
+  console.log(`[图生图] 智能Sampler选择: ${selectedSampler} (${hasCharacter ? '检测到角色，用DDIM稳定' : '无特定角色，用DPM++柔和'})`);
+  
+  // 取第一张图片作为参�?
+  const sourceImageBase64 = sourceImages[0].split(',')[1] || sourceImages[0];
+  
+  // 构造请求参�?
+  const requestBody: Record<string, unknown> = {
+    init_images: [sourceImageBase64],
+    prompt: prompt,
+    negative_prompt: 'ugly, blurry, low quality, bad anatomy, deformed, watermark, text, cropped, worst quality, low quality, distorted face, extra limbs, mutation, mutated hands, poorly drawn hands, poorly drawn face, bad hands, extra fingers, missing fingers',
+    steps: 35,
+    width: 1024,
+    height: 768,
+    cfg_scale: 14,
+    sampler_index: selectedSampler,
+    denoising_strength: 0.6,
+  };
+  
+  console.log('[图生图] 参数:', { steps: 35, width: 1024, height: 768, cfg_scale: 14, denoising: 0.6 });
+  console.log('[图生图] 调用 SD img2img API...');
+  
+  const response = await fetch(`${sdApiUrl}/sdapi/v1/img2img`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!response.ok) {
+    throw new Error(`SD img2img API 错误: ${response.status}`);
+  }
+
+  const data = await response.json();
+  
+  if (!data.images || data.images.length === 0) {
+    throw new Error('SD 图生图未返回图片');
+  }
+
+  // SD API 返回 base64 编码的图�?
+  const base64Image = data.images[0];
+  const imageBuffer = Buffer.from(base64Image, 'base64');
+  
+  // 保存到本地存�?
+  const timestamp = Date.now();
+  const randomStr = Math.random().toString(36).substring(2, 10);
+  const fileName = `dream_img2img_${timestamp}_${randomStr}.png`;
+
+  const localUrl = await saveImageLocal(base64Image, fileName);
+  console.log('[图生图] 本地保存完成, URL:', localUrl);
+  
+  // 构建完整 URL
+  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+  const host = process.env.COZE_PROJECT_DOMAIN_DEFAULT || 'localhost:5000';
+  const finalUrl = `${protocol}://${host.replace(/^https?:\/\//, '')}${localUrl}`;
+  
+  console.log(`[图生图] SD图生图生成成功！使用模型: ${modelConfig.modelName}`);
+
+  // 返回 base64 而不�?URL，让上层统一处理保存
+  return { base64Image, method: `本地SD图生�?${modelConfig.modelName}` };
+}
+
+// 生成图片（SD已确认可用，支持模型切换和自动选择�?
+async function generateImage(
+  prompt: string, 
+  sourceImages?: string[], 
+  finalArtStyle?: string,
+  userInput?: string,
+  selectedKeywords?: string[]
+): Promise<{ base64Image: string; method: string }> {
+  // 如果有源图片，使用图生图模式
+  if (sourceImages && sourceImages.length > 0) {
+    return await generateImageSDImg2Img(prompt, sourceImages, finalArtStyle, userInput, selectedKeywords);
+  }
+  // 否则使用文生图模�?
+  return await generateImageSD(prompt, finalArtStyle, userInput, sourceImages, selectedKeywords);
+}
+
+// SSE 辅助函数：发送进�?
+async function sendProgress(controller: ReadableStreamDefaultController, stage: string, message: string, progress: number, data?: Record<string, unknown>) {
+  try {
+    const event: Record<string, unknown> = {
+      stage,
+      message,
+      progress,
+      timestamp: Date.now(),
+    };
+    if (data) {
+      Object.assign(event, data);
+    }
+    const eventData = `data: ${JSON.stringify(event)}\n\n`;
+    controller.enqueue(new TextEncoder().encode(eventData));
+    
+    // 【关键】强制刷新，确保数据立即发送到前端
+    await new Promise(resolve => setImmediate(resolve));
+  } catch (error) {
+    // 如果controller已经关闭，静默失�?
+    console.log('[SSE] 无法发送进度，controller可能已关�?', error);
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const totalStartTime = Date.now();
+  console.log(`\n\n========== [生成总流程] 开�?==========`);
+  console.log(`[时间] 开始时�? ${new Date(totalStartTime).toLocaleTimeString()}`);
+  
+  // 只保留最近两次润色结�?
+  let recentPolishResults: Array<{ original: string; polished: string }> = [];
+  
+  try {
+    const { 
+      prompts, 
+      autoPolish = false, 
+      sourceImages, 
+      artStyle, 
+      userInput, 
+      selectedKeywords, 
+      aiSuggestedModel,
+      sessionId,
+    } = await request.json();
+    
+    // 获取认证token
+    const token = request.headers.get("Authorization")?.replace("Bearer ", "");
+    
+    // 获取会话历史（如果有sessionId�?
+    let sessionHistory = null;
+    if (sessionId && token) {
+      sessionHistory = await getDreamSessionHistory(sessionId, token);
+      if (sessionHistory) {
+        console.log(`[会话] 已加载会话历�? ${sessionHistory.prompt_history.length} 条记录`);
+      }
+    }
+    
+    // �?AI 分析返回的模型名称转换为 SD �?artStyle 参数
+    let effectiveArtStyle = artStyle || 'default';
+    if (aiSuggestedModel && artStyle === 'default') {
+      effectiveArtStyle = convertAIModelToArtStyle(aiSuggestedModel);
+      console.log(`[生图] AI建议模型: ${aiSuggestedModel} -> 转换�?artStyle: ${effectiveArtStyle}`);
+    }
+    
+    if (!prompts || !Array.isArray(prompts) || prompts.length === 0) {
+      return new Response(JSON.stringify({ error: '缺少提示词列�? }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // 记录是否有图生图模式
+    const isImg2ImgMode = sourceImages && sourceImages.length > 0;
+    if (isImg2ImgMode) {
+      console.log(`[图生图] 检测到 ${sourceImages.length} 张源图片，将使用图生图模式`);
+    }
+
+    // 提取请求�?
+    const customHeaders = HeaderUtils.extractForwardHeaders(request.headers);
+
+    // 创建 SSE �?
+    const encoder = new TextEncoder();
+    let controller: ReadableStreamDefaultController;
+
+    const stream = new ReadableStream({
+      async start(c) {
+        controller = c;
+        
+        try {
+          // 发送开始事�?
+          await sendProgress(controller, 'start', '开始生成梦境图�?..', 0);
+
+          // ============================================
+          // 第一步：先快速判断场景类型并切换模型（默认写实）
+          // ============================================
+          
+          const modelStartTime = Date.now();
+          console.log(`\n---------- [阶段1] 模型准备 ----------`);
+          
+          // 先拿第一个提示词来判断整体场景类�?
+          const samplePrompt = prompts[0] || '';
+          
+          // 优先使用AI建议的模�?
+          let targetModelName = 'Realistic Vision V2.0';
+          let targetModelFile = 'Realistic_Vision_V2.0-fp16-no-ema.safetensors';
+          
+          if (aiSuggestedModel) {
+            console.log(`[模型选择] 使用AI建议的模�? ${aiSuggestedModel}`);
+            if (aiSuggestedModel === 'anime' || aiSuggestedModel === 'anime-hq') {
+              targetModelName = 'Anything V5.0';
+              targetModelFile = 'anything-v5.safetensors';
+              console.log(`[模型选择] AI建议二次元模�? ${targetModelName}`);
+            } else if (aiSuggestedModel === 'realistic') {
+              targetModelName = 'Realistic Vision V2.0';
+              targetModelFile = 'Realistic_Vision_V2.0-fp16-no-ema.safetensors';
+              console.log(`[模型选择] AI建议写实模型: ${targetModelName}`);
+            } else {
+              console.log(`[模型选择] AI建议模型不明确，使用快速判断`);
+            }
+          } 
+          
+          // 如果没有AI建议，再用快速判�?
+          if (!aiSuggestedModel || targetModelName === 'Realistic Vision V2.0') {
+            // 快速判断是否为二次元场�?
+            const ANIME_DETECTION_KEYWORDS_QUICK = [
+              'yae miko', 'raiden shogun', 'nahida', 'furina', '八重神子', '雷电将军', '纳西�?, '芙宁�?,
+              'kasugano sora', '春日野穹', 'hatsune miku', '初音未来',
+              'anime style', '动漫风格', '二次元风�?,
+              'genshin', '原神'
+            ];
+            
+            const isAnimeSceneQuick = ANIME_DETECTION_KEYWORDS_QUICK.some(keyword => 
+              samplePrompt.toLowerCase().includes(keyword.toLowerCase())
+            );
+            
+            console.log(`[场景快速判断] 二次�? ${isAnimeSceneQuick ? '�?�? : '�?�?}`);
+            
+            if (isAnimeSceneQuick && !aiSuggestedModel) {
+              targetModelName = 'Anything V5.0';
+              targetModelFile = 'anything-v5.safetensors';
+              console.log(`[模型快速选择] 二次元场景，目标模型: ${targetModelName}`);
+            } else if (!aiSuggestedModel) {
+              console.log(`[模型快速选择] 写实场景（默认），目标模�? ${targetModelName}`);
+            }
+          }
+          
+          const modelEndTime = Date.now();
+          console.log(`[时间] 模型准备耗时: ${(modelEndTime - modelStartTime).toFixed(0)}ms`);
+          
+          // 【核心优化】使用智能路由，选择固定模型实例
+          await sendProgress(controller, 'checking', '选择生成实例...', 3);
+          
+          // 确定目标艺术风格
+          let targetArtStyle = effectiveArtStyle;
+          if (aiSuggestedModel) {
+            targetArtStyle = convertAIModelToArtStyle(aiSuggestedModel);
+          }
+          
+          // 如果没有AI建议，用快速判断补�?
+          if (targetArtStyle === 'default' || targetArtStyle === 'dreamy') {
+            const ANIME_DETECTION_KEYWORDS_QUICK = [
+              'yae miko', 'raiden shogun', 'nahida', 'furina', '八重神子', '雷电将军', '纳西�?, '芙宁�?,
+              'kasugano sora', '春日野穹', 'hatsune miku', '初音未来',
+              'anime style', '动漫风格', '二次元风�?,
+              'genshin', '原神'
+            ];
+            
+            const isAnimeSceneQuick = ANIME_DETECTION_KEYWORDS_QUICK.some(keyword => 
+              samplePrompt.toLowerCase().includes(keyword.toLowerCase())
+            );
+            
+            if (isAnimeSceneQuick) {
+              targetArtStyle = 'anime';
+              console.log(`[智能路由] 快速判断为二次元场景`);
+            } else {
+              targetArtStyle = 'realistic';
+              console.log(`[智能路由] 快速判断为写实场景（默认）`);
+            }
+          }
+          
+          // ============================================
+          // 【新逻辑】双模式智能路由
+          // ============================================
+          
+          // 使用新的 selectSDTarget 函数选择模式和目�?
+          const sdTarget = await selectSDTarget(samplePrompt, targetArtStyle);
+          console.log(`[双模式路由] 模式: ${sdTarget.mode}`);
+          
+          // 多台模式：直接使用选中的实�?
+          // 单台模式：需要检测并切换模型
+          let sdApiUrl: string;
+          let selectedInstanceForGeneration: SDInstance | undefined;
+          
+          if (sdTarget.mode === 'multi') {
+            // 多台模式：直接路由到对应实例
+            selectedInstanceForGeneration = sdTarget.instance;
+            sdApiUrl = sdTarget.instance?.url || '';
+            console.log(`[双模式路由] 🚀 多台模式，路由到 ${sdTarget.instance?.name}`);
+          } else {
+            // 单台模式：需要检测当前模型，决定是否切换
+            const targetModel = sdTarget.model!;
+            console.log(`[双模式路由] 📋 单台模式，目标模�? ${targetModel.name}`);
+            
+            // 从可用实例中获取第一�?
+            const available = await getAvailableInstances();
+            
+            // 检查是否有可用实例
+            if (available.length === 0) {
+              console.error('[双模式路由] �?没有可用�?SD 实例�?);
+              await sendProgress(controller, 'error', '没有可用�?SD 实例，请检�?SD 服务是否启动', 0);
+              controller.close();
+              return;
+            }
+            
+            sdApiUrl = available[0]?.url || '';
+            
+            if (!sdApiUrl) {
+              console.error('[双模式路由] �?无法获取 SD 实例 URL');
+              await sendProgress(controller, 'error', 'SD 实例配置错误', 0);
+              controller.close();
+              return;
+            }
+            
+            console.log(`[双模式路由] 📍 使用实例: ${available[0].name} (${sdApiUrl})`);
+            
+            // 检测当前模�?
+            const currentModel = await getCurrentSDModel(sdApiUrl);
+            const needsSwitch = !isModelMatch(currentModel, targetModel);
+            
+            if (needsSwitch) {
+              console.log(`[单台模式] 切换模型: ${currentModel || '未知'} �?${targetModel.name}`);
+              // 发送模型切换事件，通知前端减�?5%
+              await sendProgress(controller, 'modelSwitching', `切换模型�?{targetModel.name}...`, 5, { modelSwitching: true });
+              await switchSDModel(sdApiUrl, targetModel.file);
+              await delay(8000); // 等待模型加载
+              // 模型切换完成，恢复正常速度
+              await sendProgress(controller, 'modelSwitched', `模型切换完成，开始生�?..`, 8, { modelSwitching: false });
+            } else {
+              console.log(`[单台模式] 模型已是${targetModel.name}，直接生成`);
+            }
+          }
+          
+          // 兼容旧逻辑：使�?selectSDInstanceByStyle（后续可逐步替换�?
+          // ============================================
+          // 【旧逻辑保留】使用智能路由选择实例
+          // ============================================
+          
+          // 使用智能路由选择实例（异步获取在线实例）
+          const selectedInstance: SDInstance = selectedInstanceForGeneration || await selectSDInstanceByStyle(targetArtStyle);
+          console.log(`[智能路由] 🚀 选择实例: ${selectedInstance.name} (${selectedInstance.fixedModelName})`);
+          console.log(`[智能路由] �?无需切换模型！`);
+          
+          // ============================================
+          // 第二步：润色提示�?
+          // ============================================
+          
+          const polishStartTime = Date.now();
+          console.log(`\n---------- [阶段2] 提示词润�?翻译 ----------`);
+
+          let finalPrompts = prompts;
+
+          if (autoPolish) {
+            await sendProgress(controller, 'polishing', `正在${isImg2ImgMode ? '生成图生�? : '润色提示�?}...`, 5);
+            console.log(`[润色] 开�?{isImg2ImgMode ? '生成图生图提示词' : '并行润色提示�?}（含会话关联�?..`);
+            
+            // 判断是否为写实模式（强制清理二次元词汇）
+            const isRealisticMode = targetArtStyle === 'realistic' || targetArtStyle === 'default' || targetArtStyle === 'dreamy';
+            console.log(`[润色] 写实模式: ${isRealisticMode ? '�?�? : '�?�?}`);
+            
+            // 并行润色所有提示词，传入会话历史和写实模式约束
+            const polishPromises = prompts.map(async (prompt, index) => {
+              try {
+                const polished = await polishPrompt(prompt, customHeaders, isImg2ImgMode, sessionHistory, isRealisticMode);
+                console.log('[润色] �? ' + prompt.substring(0, 50));
+                console.log('[润色] 润色�? ' + polished);
+                
+                // 只保留最近两条润色结�?
+                recentPolishResults.push({ original: prompt, polished });
+                if (recentPolishResults.length > 2) {
+                  recentPolishResults.shift();
+                }
+                
+                // 发送每条润色进�?
+                await sendProgress(controller, 'polishing', `润色�?${index + 1}/${prompts.length} 条提示词...`, 5 + (index + 1) * 5);
+                return polished;
+              } catch (error) {
+                console.error('[润色] 润色失败，使用原提示�?', error);
+                return prompt;
+              }
+            });
+            
+            finalPrompts = await Promise.all(polishPromises);
+            console.log('[润色] 所有提示词润色完成');
+            const polishEndTime = Date.now();
+            console.log(`[时间] 提示词润色耗时: ${(polishEndTime - polishStartTime).toFixed(0)}ms`);
+            await sendProgress(controller, 'polished', '提示词润色完�?, 15);
+          } else {
+            console.log('[生成] 用户已润色，跳过AI润色但进行翻�?..');
+            await sendProgress(controller, 'translating', '正在翻译提示�?..', 12);
+            
+            // 即使跳过了AI润色，仍然需要将中文提示词翻译成英文
+            // 因为SD模型对英文提示词的理解更�?
+            const translatePromises = prompts.map(async (prompt, index) => {
+              try {
+                const translated = await translateToEnglish(prompt, customHeaders);
+                console.log('[翻译] �? ' + prompt.substring(0, 30) + '...');
+                console.log('[翻译] 翻译�? ' + translated.substring(0, 50) + '...');
+                return translated;
+              } catch (error) {
+                console.error('[翻译] 翻译失败，使用原提示�?', error);
+                return prompt;
+              }
+            });
+            
+            finalPrompts = await Promise.all(translatePromises);
+            console.log('[翻译] 所有提示词翻译完成');
+            const translateEndTime = Date.now();
+            console.log(`[时间] 提示词翻译耗时: ${(translateEndTime - polishStartTime).toFixed(0)}ms`);
+            await sendProgress(controller, 'polished', '提示词翻译完�?, 15);
+          }
+
+          // 检�?SD 是否可用
+          const sdCheckStartTime = Date.now();
+          console.log(`\n---------- [阶段3] SD服务检�?----------`);
+          await sendProgress(controller, 'checking', '检测本�?SD 服务...', 18);
+          const sdAvailable = await isSDAvailable();
+          if (!sdAvailable) {
+            console.log('[生成] SD 不可用，返回错误');
+            await sendProgress(controller, 'error', '本地 SD 服务未启动，请检�?SD 服务是否运行', 0, { error: '本地 SD 服务未启�? });
+            controller.close();
+            return;
+          }
+          
+          console.log('[生成] SD 服务可用，开始生成图�?..');
+          const sdCheckEndTime = Date.now();
+          console.log(`[时间] SD服务检测耗时: ${(sdCheckEndTime - sdCheckStartTime).toFixed(0)}ms`);
+          await sendProgress(controller, 'ready', `本地SD就绪，开始生成图片`, 20);
+          
+          console.log(`\n---------- [阶段4] 图片生成（并行模式）----------`);
+          const generationStartTime = Date.now();
+
+          // 重置轮询计数器，确保每个请求都从第一个实例开�?
+          resetRoundRobinIndex();
+
+          // SD 可用，使用真并行生成多张图片
+          const results: { imageUrl: string; originalPrompt: string; polishedPrompt: string; translatedPrompt: string; method: string; instance: string }[] = [];
+          const totalImages = finalPrompts.length;
+          
+          // 先为每张图片分配实例（轮询分配）- 异步检查在线状�?
+          const allocatedInstances = await Promise.all(finalPrompts.map(() => getNextInstanceByStyle(effectiveArtStyle)));
+          console.log(`[并行生成] �?${totalImages} 张图片分配实�?`);
+          allocatedInstances.forEach((inst, idx) => {
+            console.log(`[并行生成]   �?{idx + 1} �?${inst.name} (${inst.fixedModelName})`);
+          });
+          
+          // 发送开始生成消�?
+          await sendProgress(controller, 'generating', `正在并行生成 ${totalImages} 张图�?..`, 20);
+          
+          try {
+            // 【优化】第一阶段：并行生成所有图片（只获�?base64，不保存�?
+            const generationPromises = finalPrompts.map(async (prompt, index) => {
+              const instance = allocatedInstances[index];
+              console.log(`[并行生成] 开始生成第 ${index + 1}/${totalImages} �?�?${instance.name}`);
+              
+              try {
+                // 生成图片（返�?base64�?
+                const result = await generateImage(prompt, sourceImages, effectiveArtStyle, userInput, selectedKeywords);
+                
+                return {
+                  success: true,
+                  index,
+                  result: {
+                    base64Image: result.base64Image,
+                    originalPrompt: prompts[index],
+                    polishedPrompt: finalPrompts[index],
+                    translatedPrompt: finalPrompts[index],
+                    method: result.method,
+                    instance: instance.name,
+                  }
+                };
+              } catch (error) {
+                console.error(`[并行生成] �?${index + 1} 张失�?`, error);
+                return {
+                  success: false,
+                  index,
+                  error: error instanceof Error ? error.message : '未知错误'
+                };
+              }
+            });
+            
+            // 并行等待所有图片生成完�?
+            const generationResults = await Promise.all(generationPromises);
+            
+            // 【优化】第二阶段：并行保存所有成功的图片到本�?
+            const successfulGenerations = generationResults.filter((r): r is { success: true; index: number; result: { base64Image: string; originalPrompt: string; polishedPrompt: string; translatedPrompt: string; method: string; instance: string } } => r.success);
+            if (successfulGenerations.length > 0) {
+              await sendProgress(controller, 'saving', `正在保存 ${successfulGenerations.length} 张图�?..`, 85);
+              
+              const imagesToSave = successfulGenerations.map(({ index, result }) => ({
+                base64: result.base64Image,
+                fileName: `dream_${Date.now()}_${index}_${Math.random().toString(36).substring(2, 8)}.png`,
+                index
+              }));
+              
+              const saveStartTime = Date.now();
+              const savedUrls = await saveImagesParallel(imagesToSave);
+              console.log(`[并行保存] ${successfulGenerations.length} 张图片并行保存完成，耗时: ${Date.now() - saveStartTime}ms`);
+              
+              // 更新结果�?URL 并收�?
+              successfulGenerations.forEach((genResult) => {
+                const savedUrl = savedUrls.get(genResult.index);
+                if (savedUrl) {
+                  // 构建完整 URL
+                  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+                  const host = process.env.COZE_PROJECT_DOMAIN_DEFAULT || 'localhost:5000';
+                  const finalUrl = `${protocol}://${host.replace(/^https?:\/\//, '')}${savedUrl}`;
+                  
+                  results.push({
+                    imageUrl: finalUrl,
+                    originalPrompt: genResult.result.originalPrompt,
+                    polishedPrompt: genResult.result.polishedPrompt,
+                    translatedPrompt: genResult.result.translatedPrompt,
+                    method: genResult.result.method,
+                    instance: genResult.result.instance,
+                  });
+                  await sendProgress(controller, 'generated', `�?${genResult.index + 1} 张完成`, 80 + (genResult.index / totalImages) * 15);
+                }
+              });
+            }
+            
+            // 处理失败的生�?
+            generationResults.filter((r): r is { success: false; index: number; error: string } => !r.success).forEach((genResult) => {
+              await sendProgress(controller, 'warning', `�?${genResult.index + 1} 张失�? ${genResult.error || '未知错误'}，继�?..`, 50);
+            });
+            
+            console.log(`[并行生成] 完成！成�? ${results.length}/${totalImages}`);
+            
+          } catch (error) {
+            console.error('[并行生成] 整体错误:', error);
+          }
+
+          if (results.length > 0) {
+            const generationEndTime = Date.now();
+            const totalEndTime = Date.now();
+            console.log(`\n---------- [生成完成] ----------`);
+            
+            // 打印最近的润色结果
+            if (recentPolishResults.length > 0) {
+              console.log('\n=== [AI润色结果] 最近两�?===');
+              recentPolishResults.forEach((item, idx) => {
+                console.log(`[润色${idx + 1}] �? ${item.original}`);
+                console.log(`[润色${idx + 1}] �? ${item.polished}`);
+              });
+              console.log('===============================\n');
+            }
+            
+            console.log(`[时间] 图片生成耗时: ${(generationEndTime - generationStartTime).toFixed(0)}ms`);
+            console.log(`[时间] 总耗时: ${(totalEndTime - totalStartTime).toFixed(0)}ms`);
+            console.log(`========== [生成总流程] 完成 ==========\n\n`);
+            
+            // 上传结果
+            await sendProgress(controller, 'saving', `正在上传 ${results.length} 张图�?..`, 95);
+            
+            await sendProgress(controller, 'complete', '图片生成完成�?, 100, {
+              success: true,
+              results,
+              count: results.length,
+              imageMethod: results[0].method,
+            });
+          } else {
+            await sendProgress(controller, 'error', '图片生成失败', 0, { 
+              error: '图片生成失败，请检查本�?SD 服务是否已启�? 
+            });
+          }
+          
+          controller.close();
+        } catch (error) {
+          console.error('Batch image generation error:', error);
+          const errorMessage = error instanceof Error ? error.message : '图片生成失败，请稍后重试';
+          await sendProgress(controller, 'error', errorMessage, 0, { error: errorMessage });
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no', // 禁用 Nginx 缓冲
+      },
+    });
+  } catch (error) {
+    console.error('Request parsing error:', error);
+    return new Response(JSON.stringify({ error: '请求解析失败' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+}
