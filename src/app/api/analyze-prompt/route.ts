@@ -258,6 +258,7 @@ ${keywordHint}
     console.log(`[AI分析] 使用${provider}完成`);
     // AI原始返回日志已精简
 
+    // 【修复】fallback 使用用户输入的内容，而不是固定描述
     const fallback = {
       analysis: { 
         subject: inputSummary || '梦境场景', 
@@ -265,8 +266,8 @@ ${keywordHint}
         setting: '神秘的梦境空间', 
         mood: '神秘' 
       },
-      positivePromptEN: '1boy, young male character, detailed face, standing pose, simple background, masterpiece, best quality, anime style',
-      positivePromptCN: '画面中的场景如梦似幻，细节在光影中若隐若现，氛围宁静而神秘',
+      positivePromptEN: inputSummary || 'dream scene, masterpiece, best quality',
+      positivePromptCN: inputSummary || '梦境场景',
       negativePrompt: ['ugly', 'blurry', 'low quality', 'bad anatomy', 'worst quality'],
       keywords: selectedKeywords || [],
       mood: '平静',
@@ -276,10 +277,10 @@ ${keywordHint}
     const analysisResult = parseAIResult(aiResult, fallback);
     console.log('[AI] 解析: 人物=' + (analysisResult.analysis?.subject?.substring(0, 20) || '无') + ', 模型=' + analysisResult.model);
 
-    // 确保有中文描述
-    if (!analysisResult.positivePromptCN || analysisResult.positivePromptCN === inputSummary) {
-      console.warn('[AI分析] 警告: AI未生成中文描述，使用默认文学描述');
-      analysisResult.positivePromptCN = '画面中的场景如梦似幻，细节在光影中若隐若现，氛围宁静而神秘';
+    // 【修复】确保有中文描述，优先使用用户输入，而不是固定默认描述
+    if (!analysisResult.positivePromptCN) {
+      console.warn('[AI分析] 警告: AI未生成中文描述，使用用户输入');
+      analysisResult.positivePromptCN = inputSummary || '梦境场景';
     }
 
     // 确保反向提示词至少有5个
