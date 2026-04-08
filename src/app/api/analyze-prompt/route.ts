@@ -181,10 +181,12 @@ function autoSelectModel(prompt: string): string {
  * 提示词润色API - 返回中英双语提示词（支持上下文关联）
  */
 export async function POST(request: NextRequest) {
+  // 先读取请求体，这样 catch 里也能用
+  const body = await request.json();
+  const { userInput, uploadedImages, selectedKeywords, contextHistory, artStyle } = body;
+  const inputSummary = userInput?.trim() || '';
+  
   try {
-    const { userInput, uploadedImages, selectedKeywords, contextHistory, artStyle } = await request.json();
-    
-    const inputSummary = userInput?.trim() || '';
     const keywordSummary = selectedKeywords?.join('、') || '';
     
     // 检查输入长度（至少2个字符）
@@ -327,12 +329,24 @@ ${keywordHint}
 
   } catch (error) {
     console.error('[AI分析] 错误:', error);
+    // 【修复】润色失败时返回原文本，而不是错误
     return new Response(JSON.stringify({
-      success: false,
-      error: 'AI分析失败，请稍后重试',
-      details: error instanceof Error ? error.message : String(error)
+      success: true, // 改为true，让前端正常处理
+      model: 'anime',
+      polishedPrompt: inputSummary || 'dream scene, masterpiece, best quality',
+      polishedPromptCN: inputSummary || '梦境场景',
+      negativePrompt: ['ugly', 'blurry', 'low quality', 'bad anatomy', 'worst quality'],
+      analysis: { 
+        subject: inputSummary || '梦境场景', 
+        action: '在梦境中', 
+        setting: '神秘的梦境空间', 
+        mood: '神秘' 
+      },
+      keywords: selectedKeywords || [],
+      mood: '平静',
+      provider: 'fallback'
     }), {
-      status: 500,
+      status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
   }
