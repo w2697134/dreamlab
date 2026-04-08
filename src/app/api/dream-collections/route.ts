@@ -271,6 +271,16 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    // 【修复】检查ID格式，纯数字ID是本地数据，不需要操作数据库
+    const isLocalId = /^\d+$/.test(collectionId);
+    if (isLocalId) {
+      console.log('[API] 本地数据删除请求，跳过数据库操作:', collectionId);
+      return NextResponse.json({
+        success: true,
+        message: '本地数据已删除',
+      });
+    }
+
     // 删除梦境集中的所有梦境
     await client.from('dreams').delete().eq('collection_id', collectionId);
 

@@ -31,6 +31,16 @@ export async function DELETE(
 
     const { id } = await params;
 
+    // 【修复】检查ID格式，纯数字ID是本地数据，不需要操作数据库
+    const isLocalId = /^\d+$/.test(id);
+    if (isLocalId) {
+      console.log('[API] 本地梦境删除请求，跳过数据库操作:', id);
+      return NextResponse.json({
+        success: true,
+        message: '本地数据已删除',
+      });
+    }
+
     const { error } = await client
       .from('dreams')
       .delete()
