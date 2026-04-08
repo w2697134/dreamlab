@@ -13,9 +13,25 @@ const KIMI_API_KEY = process.env.KIMI_API_KEY;
 const KIMI_BASE_URL = 'https://api.moonshot.cn/v1';
 const CONFIG_FILE = path.join(process.cwd(), 'data', 'llm-config.json');
 
+// 文本内容
+interface TextContent {
+  type: 'text';
+  text: string;
+}
+
+// 图片内容
+interface ImageContent {
+  type: 'image_url';
+  image_url: {
+    url: string;
+    detail?: 'low' | 'high';
+  };
+}
+
+// 消息内容可以是文本或图片数组
 interface QwenMessage {
   role: 'system' | 'user' | 'assistant';
-  content: string;
+  content: string | (TextContent | ImageContent)[];
 }
 
 interface QwenCompletionOptions {
