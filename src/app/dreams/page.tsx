@@ -187,34 +187,33 @@ const [collections, setCollections] = useState<DreamCollection[]>([]);
     console.log('[删除梦境集] ID:', collectionId, '是否本地:', isLocalId);
     
     if (isLocalId) {
-      // 本地数据直接从 localStorage 删除
-      const localDreams = localStorage.getItem('dreamLibrary');
-      if (localDreams) {
-        try {
+      // 【修复】本地数据删除 - 即使 localStorage 中没有，也从 UI 移除
+      try {
+        const localDreams = localStorage.getItem('dreamLibrary');
+        if (localDreams) {
           const parsed = JSON.parse(localDreams);
           const filtered = parsed.filter((item: any) => item.id !== collectionId);
           localStorage.setItem('dreamLibrary', JSON.stringify(filtered));
-          setCollections(prev => prev.filter(c => c.id !== collectionId));
-          setExpandedCollection(null);
-          
-          // 【修复】清除该梦境集的评估缓存
-          const records = JSON.parse(localStorage.getItem('assessmentRecords') || '{}');
-          if (records[collectionId]) {
-            delete records[collectionId];
-            localStorage.setItem('assessmentRecords', JSON.stringify(records));
-            setAssessmentRecords(records);
-          }
-          
-          showToast('梦境集已删除', 'success');
-          setShowDeleteConfirm(false);
-          setDeleteTarget(null);
-          return;
-        } catch (e) {
-          console.error('[梦境库] 删除本地数据失败:', e);
         }
+        
+        // 无论 localStorage 如何，都从 UI 中移除
+        setCollections(prev => prev.filter(c => c.id !== collectionId));
+        setExpandedCollection(null);
+        
+        // 【修复】清除该梦境集的评估缓存
+        const records = JSON.parse(localStorage.getItem('assessmentRecords') || '{}');
+        if (records[collectionId]) {
+          delete records[collectionId];
+          localStorage.setItem('assessmentRecords', JSON.stringify(records));
+          setAssessmentRecords(records);
+        }
+        
+        showToast('梦境集已删除', 'success');
+      } catch (e) {
+        console.error('[梦境库] 删除本地数据失败:', e);
+        showToast('删除失败', 'error');
       }
       
-      showToast('删除失败', 'error');
       setShowDeleteConfirm(false);
       setDeleteTarget(null);
       return;
@@ -309,10 +308,10 @@ const [collections, setCollections] = useState<DreamCollection[]>([]);
     const isLocalId = /^\d+$/.test(collectionId); // 纯数字ID是本地数据
     
     if (isLocalId) {
-      // 本地数据直接从 localStorage 删除
-      const localDreams = localStorage.getItem('dreamLibrary');
-      if (localDreams) {
-        try {
+      // 【修复】本地数据删除 - 即使 localStorage 中没有，也从 UI 移除
+      try {
+        const localDreams = localStorage.getItem('dreamLibrary');
+        if (localDreams) {
           const parsed = JSON.parse(localDreams);
           // 找到对应的梦境集并删除其中的指定图片
           const updated = parsed.map((item: any) => {
@@ -326,35 +325,36 @@ const [collections, setCollections] = useState<DreamCollection[]>([]);
           }).filter((item: any) => (item.images?.length || 0) > 0); // 移除空集
           
           localStorage.setItem('dreamLibrary', JSON.stringify(updated));
-          
-          // 更新本地状态
-          setCollections(prev => prev.map(c => {
-            if (c.id === collectionId) {
-              const newDreams = c.dreams.filter(d => d.id !== dreamId);
-              return {
-                ...c,
-                dreams: newDreams,
-                image_count: newDreams.length,
-                cover_url: newDreams[0]?.image_url || c.cover_url,
-              };
-            }
-            return c;
-          }).filter(c => c.image_count > 0));
-          
-          // 清除评估缓存
-          const records = JSON.parse(localStorage.getItem('assessmentRecords') || '{}');
-          if (records[collectionId]) {
-            delete records[collectionId];
-            localStorage.setItem('assessmentRecords', JSON.stringify(records));
-            setAssessmentRecords(records);
-          }
-          
-          showToast('梦境已删除', 'success');
-        } catch (e) {
-          console.error('[梦境库] 删除本地梦境失败:', e);
-          showToast('删除失败', 'error');
         }
+        
+        // 无论 localStorage 如何，都从 UI 中移除
+        setCollections(prev => prev.map(c => {
+          if (c.id === collectionId) {
+            const newDreams = c.dreams.filter(d => d.id !== dreamId);
+            return {
+              ...c,
+              dreams: newDreams,
+              image_count: newDreams.length,
+              cover_url: newDreams[0]?.image_url || c.cover_url,
+            };
+          }
+          return c;
+        }).filter(c => c.image_count > 0));
+        
+        // 清除评估缓存
+        const records = JSON.parse(localStorage.getItem('assessmentRecords') || '{}');
+        if (records[collectionId]) {
+          delete records[collectionId];
+          localStorage.setItem('assessmentRecords', JSON.stringify(records));
+          setAssessmentRecords(records);
+        }
+        
+        showToast('梦境已删除', 'success');
+      } catch (e) {
+        console.error('[梦境库] 删除本地梦境失败:', e);
+        showToast('删除失败', 'error');
       }
+      
       setShowDeleteConfirm(false);
       setDeleteTarget(null);
       return;
